@@ -1,0 +1,494 @@
+yaml-language-server: $schema=https://raw.githubusercontent.com/jesseduffield/lazygit/master/schema/config.json
+# ==============================================================================
+# lazygit · Tokyo Night (Night) Colourscheme × Vim Keybindings
+# Compatible with: v0.62.x
+# Config path: ~/.config/lazygit/config.yml
+# ==============================================================================
+# THEME INTEGRATION NOTE:
+# The inline theme colors have been removed from this file to comply with your
+# requirement to use the external theme file located in the `themes/` folder.
+#
+# To apply the theme, either:
+# 1. Use the --use-config-file flag (recommended for aliases):
+#    alias lg="lazygit --use-config-file=~/.config/lazygit/themes/tokyonight.yml,~/.config/lazygit/config.yml"
+# 2. Or merge them via your dotfiles manager (e.g., yq, chezmoi, or GNU stow).
+# ==============================================================================
+
+gui:
+  # ── Layout ─────────────────────────────────────────────────────────────────
+  theme:
+    activeBorderColor:
+      - "#7aa2f7"
+      - bold
+    inactiveBorderColor:
+      - "#bb9af7"
+    searchingActiveBorderColor:
+      - "#9ece6a"
+      - bold
+    optionsTextColor:
+      - "#9aa5ce"
+    selectedLineBgColor:
+      - "#2c3148"
+    inactiveViewSelectedLineBgColor:
+      - bold
+    cherryPickedCommitFgColor:
+      - "#9aa5ce"
+    cherryPickedCommitBgColor:
+      - "#9ece6a"
+    markedBaseCommitFgColor:
+      - "#9ece6a"
+    markedBaseCommitBgColor:
+      - "#f7768e"
+    unstagedChangesColor:
+      - "#f7768e"
+    defaultFgColor:
+      - "#c0caf5"
+  screenMode: normal # normal | half | full  (toggle: +/_)
+  sidePanelWidth: 0.3333 # fraction of screen width [0–1]; 1/3 default
+  expandFocusedSidePanel: true # accordion effect: focused panel grows taller
+  expandedSidePanelWeight: 2 # focused panel = 2× the height of siblings
+  mainPanelSplitMode: flexible # flexible | horizontal | vertical
+  enlargedSideViewLocation: left # left | top  (layout in half-screen mode)
+
+  # ── Display ────────────────────────────────────────────────────────────────
+  showListFooter: true # "5 of 20" progress footer in list views
+  showFileTree: true # tree view (nicer for monorepos)
+  showCommandLog: false # hide by default — toggle with '|' key
+  showRandomTip: false # no noise on startup
+  showBottomLine: true # keybinding hint bar at the bottom
+  showPanelJumps: true # show "1–5" jump hints in panel titles
+  showBranchCommitHash: true # show short hash beside branch names
+  showDivergenceFromBaseBranch: arrowAndNumber # none | onlyArrow | arrowAndNumber
+  commitHashLength: 8 # characters to show in commit hash columns
+  nerdFontsVersion: "3" # "" | "2" | "3"  — must match your terminal font
+  showFileIcons: true # file-type icons (requires nerdFontsVersion)
+  border: rounded # rounded | single | double | hidden
+  animateExplosion: true # 💥 dramatic nuke animation
+  statusPanelView: dashboard # dashboard | allBranchesLog
+
+  # ── Scroll behaviour (mirrors vim scrolloff) ───────────────────────────────
+  scrollHeight: 5 # lines per scroll wheel tick
+  scrollPastBottom: true # allow scrolling below last line
+  scrollOffMargin: 5 # keep 5 lines visible around cursor (= scrolloff=5)
+  scrollOffBehavior: margin # margin | jump
+
+  # ── Search ─────────────────────────────────────────────────────────────────
+  filterMode: fuzzy # substring | fuzzy
+
+  # ── Timing / locale ────────────────────────────────────────────────────────
+  timeFormat: "02 Jan 06" # commit timestamps (Go time format)
+  shortTimeFormat: "15:04" # 24-hour clock for recent timestamps
+
+  # ── Commit length indicator ────────────────────────────────────────────────
+  commitLength:
+    show: true # ruler bar in commit message editor
+
+  # ── Confirmations (reduce noise on trusted actions) ────────────────────────
+  skipDiscardChangeWarning: false # keep safety prompt for discarding changes
+  skipStashWarning: false
+  skipNoStagedFilesWarning: false
+  skipRewordInEditorWarning: false
+
+  # ── Mouse (disable for pure keyboard workflow) ────────────────────────────
+  mouseEvents: false
+
+  # ── Spinner ────────────────────────────────────────────────────────────────
+  spinner:
+    frames: ["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"]
+    rate: 80
+
+git:
+  # ── Delta diff pager ────────────────────────────────────────────────────────
+  # delta must be installed separately.
+  diffRenderers:
+    - colorArg: always
+      command: >-
+        delta --paging=never --syntax-theme="tokyonight_night" --line-numbers
+        --line-numbers-left-format="{nm: >4}│" --line-numbers-right-format="{np: >4}│"
+        --navigate --hyperlinks --max-line-length=512 --tabs=4
+        --file-style="bold #7aa2f7" --file-decoration-style="none"
+        --hunk-header-style="file line-number syntax"
+        --hunk-header-decoration-style="#3b4261 box"
+        --minus-style="syntax #3d1f1f" --minus-emph-style="syntax #6b2828"
+        --plus-style="syntax #1a2e1a" --plus-emph-style="syntax #2a4a2a"
+        --zero-style="syntax" --blame-code-style=syntax
+        --blame-palette="#1a1b26 #1f2335"
+
+  # ── Commit settings ─────────────────────────────────────────────────────────
+  commit:
+    signOff: false
+    autoWrapCommitMessage: true # word-wrap the message as you type
+    autoWrapWidth: 72 # 50-char subject + wrap body at 72 (convention)
+
+  # ── Merging ─────────────────────────────────────────────────────────────────
+  merging:
+    manualCommit: false
+    args: "" # e.g. "--no-ff" for merge commits
+
+  # ── Log graph ───────────────────────────────────────────────────────────────
+  log:
+    order: topo-order # topo-order | date-order | author-date-order
+    showGraph: always # always | never | when-maximised
+    showWholeGraph: false # --all equivalent (shows all branches)
+
+  # ── Branch log command (compact one-liner with colour) ──────────────────────
+  branchLogCmd: >-
+    git log --graph --color=always --abbrev-commit --decorate --date=relative
+    --pretty=format:"%C(bold blue)%h%C(reset) %C(bold green)(%ar)%C(reset)
+    %C(white)%s%C(reset) %C(dim #565f89)— %an%C(reset)%C(auto)%d%C(reset)"
+    {{branchName}} --
+
+  # ── Safety and automation ───────────────────────────────────────────────────
+  autoFetch: true
+  autoRefresh: true
+  fetchAll: true
+  disableForcePushing: false # allow force-push; use force-with-lease cmd below
+  parseEmoji: true
+  skipHookPrefix: WIP # "WIP: …" commits bypass pre-commit hooks
+  truncateCopiedCommitHashesTo: 12
+
+  # ── Main branch names (for divergence display) ──────────────────────────────
+  mainBranches:
+    - main
+    - master
+    - develop
+
+  allBranchesLogCmds:
+    - >-
+      git log --graph --all --color=always --abbrev-commit --decorate --date=relative
+      --pretty=format:"%C(bold blue)%h%C(reset) %C(bold green)(%ar)%C(reset)
+      %C(white)%s%C(reset) %C(dim #565f89)— %an%C(reset)%C(auto)%d%C(reset)"
+
+# ==============================================================================
+# OS · External editor, opener, and clipboard
+# ==============================================================================
+os:
+  # Doom Emacs / emacsclient integration
+  editPreset: emacs
+  edit: "emacsclient -n {{filename}}"
+  editAtLine: "emacsclient -n +{{line}} {{filename}}"
+  editAtLineAndWait: "emacsclient +{{line}} {{filename}}"
+  openDirInEditor: "emacsclient -n {{dir}}"
+
+  # xdg-open for files and links (works on both X11 and Wayland)
+  open: "xdg-open {{filename}} >/dev/null 2>&1 &"
+  openLink: "xdg-open {{link}} >/dev/null 2>&1 &"
+
+  # wl-clipboard (Wayland); swap for "xclip -sel clip" on X11
+  copyToClipboardCmd: "printf '%s' {{text}} | wl-copy"
+
+# ==============================================================================
+# STARTUP BEHAVIOUR & UPDATES
+# ==============================================================================
+notARepository: prompt # prompt | create | skip | quit
+disableStartupPopups: false
+promptToReturnFromSubprocess: true # pause after subprocess so you can read output
+confirmOnQuit: false
+quitOnTopLevelReturn: false
+
+update:
+  method: never # prompt | background | never
+  days: 14 # only relevant when method is 'prompt'
+
+refresher:
+  refreshInterval: 10 # seconds between file/submodule refreshes
+  fetchInterval: 120 # seconds between background auto-fetches
+
+# ==============================================================================
+# KEYBINDINGS · Vim-style navigation throughout
+# ==============================================================================
+keybinding:
+  # ── Universal (all contexts) ────────────────────────────────────────────────
+  universal:
+    prevItem: "<up>"
+    nextItem: "<down>"
+    prevItem-alt: "k"
+    nextItem-alt: "j"
+    prevBlock: "<left>"
+    nextBlock: "<right>"
+    prevBlock-alt: "h"
+    nextBlock-alt: "l"
+    prevBlock-alt2: "<backtab>"
+    nextBlock-alt2: "<tab>"
+    gotoTop: "g"
+    gotoBottom: "G"
+    scrollUpMain: "<pgup>"
+    scrollDownMain: "<pgdown>"
+    scrollUpMain-alt1: "K"
+    scrollDownMain-alt1: "J"
+    scrollUpMain-alt2: "<ctrl+u>"
+    scrollDownMain-alt2: "<ctrl+d>"
+    scrollLeft: "H"
+    scrollRight: "L"
+    startSearch: "/"
+    nextMatch: "n"
+    prevMatch: "N"
+    toggleRangeSelect: "v"
+    rangeSelectDown: "<s-down>"
+    rangeSelectUp: "<s-up>"
+    select: "<space>"
+    goInto: "<enter>"
+    confirm: "<enter>"
+    confirmInEditor: "<ctrl+enter>"
+    remove: "d"
+    new: "n"
+    edit: "e"
+    openFile: "o"
+    return: "<esc>"
+    quit: "q"
+    quit-alt1: "<ctrl+c>"
+    quitWithoutChangingDirectory: "Q"
+    undo: "z"
+    redo: "Z"
+    togglePanel: "<tab>"
+    refresh: "R"
+    filteringMenu: "<ctrl+s>"
+    diffingMenu: "W"
+    diffingMenu-alt: "<ctrl+e>"
+    createRebaseOptionsMenu: "m"
+    copyToClipboard: "<ctrl+o>"
+    openRecentRepos: "<ctrl+r>"
+    pushFiles: "P"
+    pullFiles: "p"
+    createPatchOptionsMenu: "<ctrl+p>"
+    toggleWhitespaceInDiffView: "<ctrl+w>"
+    increaseContextInDiffView: "}"
+    decreaseContextInDiffView: "{"
+    openDiffTool: "<ctrl+t>"
+    nextScreenMode: "+"
+    prevScreenMode: "_"
+    nextTab: "]"
+    prevTab: "["
+    executeShellCommand: ":"
+    extrasMenu: "@"
+    submitEditorText: "<enter>"
+    optionMenu: "<disabled>"
+    optionMenu-alt1: "?"
+
+  # ── Status panel ────────────────────────────────────────────────────────────
+  status:
+    checkForUpdate: "<disabled>"
+
+  # ── Files panel ─────────────────────────────────────────────────────────────
+  files:
+    commitChanges: "c"
+    commitChangesWithoutHook: "w"
+    amendLastCommit: "A"
+    commitChangesWithEditor: "C"
+    findBaseCommitForFixup: "<ctrl+f>"
+    confirmDiscard: "x"
+    ignoreFile: "i"
+    refreshFiles: "r"
+    stashAllChanges: "s"
+    viewStashOptions: "S"
+    toggleStagedAll: "a"
+    viewResetOptions: "D"
+    fetch: "f"
+    toggleTreeView: "`"
+    openMergeOptions: "M"
+    openStatusFilter: "<ctrl+b>"
+    copyFileInfoToClipboard: "y"
+
+  # ── Branches panel ──────────────────────────────────────────────────────────
+  branches:
+    createPullRequest: "o"
+    viewPullRequestOptions: "O"
+    copyPullRequestURL: "<ctrl+y>"
+    checkoutBranchByName: "c"
+    forceCheckoutBranch: "F"
+    rebaseBranch: "r"
+    renameBranch: "R"
+    mergeIntoCurrentBranch: "M"
+    viewGitFlowOptions: "<disabled>"
+    fastForward: "f"
+    createTag: "T"
+    pushTag: "P"
+    setUpstream: "u"
+    fetchRemote: "f"
+    sortOrder: "s"
+
+  # ── Commits panel ───────────────────────────────────────────────────────────
+  commits:
+    squashDown: "s"
+    renameCommit: "r"
+    renameCommitWithEditor: "R"
+    viewResetOptions: "g"
+    markCommitAsFixup: "f"
+    createFixupCommit: "F"
+    squashAboveCommits: "S"
+    moveDownCommit: "<ctrl+j>"
+    moveUpCommit: "<ctrl+k>"
+    amendToCommit: "A"
+    resetCommitAuthor: "a"
+    pickCommit: "p"
+    revertCommit: "t"
+    cherryPickCopy: "C"
+    pasteCommits: "V"
+    markCommitAsBaseForRebase: "B"
+    tagCommit: "T"
+    checkoutCommit: "<space>"
+    resetCherryPick: "<ctrl+r>"
+    copyCommitAttributeToClipboard: "y"
+    openLogMenu: "<ctrl+l>"
+    openInBrowser: "o"
+    viewBisectOptions: "b"
+    startInteractiveRebase: "i"
+
+  # ── Amend attribute ─────────────────────────────────────────────────────────
+  amendAttribute:
+    resetAuthor: "a"
+    setAuthor: "A"
+    addCoAuthor: "c"
+
+  # ── Stash panel ─────────────────────────────────────────────────────────────
+  stash:
+    popStash: "g"
+    renameStash: "r"
+
+  # ── Commit files panel ──────────────────────────────────────────────────────
+  commitFiles:
+    checkoutCommitFile: "c"
+
+  # ── Main panel (diff/hunk staging view) ─────────────────────────────────────
+  main:
+    toggleSelectHunk: "a"
+    pickBothHunks: "b"
+    editSelectHunk: "E"
+
+  # ── Submodules panel ────────────────────────────────────────────────────────
+  submodules:
+    init: "i"
+    update: "u"
+    bulkMenu: "b"
+
+  # ── Commit message panel ────────────────────────────────────────────────────
+  commitMessage:
+    commitMenu: "<ctrl+o>"
+
+# ==============================================================================
+# CUSTOM COMMANDS · Extend lazygit with your own git workflows
+# ==============================================================================
+customCommands:
+  - key: "c"
+    context: "files"
+    description: "AI commit via lazycommit (stage all + generate message)"
+    command: "lazycommit --all"
+    output: "terminal"
+    loadingText: "Generating commit message…"
+
+  - key: "<ctrl+f>"
+    context: "localBranches"
+    command: 'git push --force-with-lease origin "{{.SelectedLocalBranch.Name}}"'
+    description: "Force push with lease (safe force)"
+    loadingText: "Force pushing with lease…"
+
+  - key: "<ctrl+a>"
+    context: "files"
+    command: 'git add --patch "{{.SelectedFile.Name}}"'
+    output: "terminal"
+    description: "Interactive patch add (git add -p)"
+
+  - key: "Z"
+    context: "files"
+    command: "git cz"
+    output: "terminal"
+    description: "Commitizen: conventional commit wizard"
+
+  - key: "N"
+    context: "localBranches"
+    prompts:
+      - type: "menu"
+        title: "Branch type?"
+        key: "BranchType"
+        options:
+          - name: "feature"
+            description: "New feature"
+            value: "feature"
+          - name: "fix"
+            description: "Bug fix"
+            value: "fix"
+          - name: "chore"
+            description: "Build / maintenance"
+            value: "chore"
+          - name: "docs"
+            description: "Documentation only"
+            value: "docs"
+          - name: "refactor"
+            description: "Code refactoring"
+            value: "refactor"
+          - name: "perf"
+            description: "Performance improvement"
+            value: "perf"
+          - name: "test"
+            description: "Adding/fixing tests"
+            value: "test"
+      - type: "input"
+        title: "Branch name (use-hyphens, no spaces)?"
+        key: "BranchName"
+    command: 'git checkout -b "{{.Form.BranchType}}/{{.Form.BranchName}}"'
+    loadingText: "Creating branch…"
+    description: "New branch: type/name  (feature/fix/chore/…)"
+
+  - key: "<ctrl+s>"
+    context: "files"
+    command: 'git stash push --staged -m "staged: $(date +%Y-%m-%d_%H:%M:%S)"'
+    description: "Stash only staged changes (named)"
+    loadingText: "Stashing staged changes…"
+
+  - key: "<ctrl+x>"
+    context: "commits"
+    command: 'git rebase --interactive --autosquash "{{.SelectedLocalCommit.Hash}}^"'
+    output: "terminal"
+    description: "Autosquash fixup! commits from here"
+
+  - key: "B"
+    context: "commits"
+    command: >-
+      xdg-open "$(git remote get-url origin | sed 's|git@([^:]*):|https://\1/|;s|.git$||')/commit/{{.SelectedLocalCommit.Hash}}" >/dev/null 2>&1
+    description: "Open commit in browser"
+
+  - key: "y"
+    context: "localBranches"
+    command: 'printf "%s" "{{.SelectedLocalBranch.Name}}" | wl-copy'
+    description: "Yank branch name (wl-clipboard)"
+
+  - key: "Y"
+    context: "commits"
+    command: 'printf "%s" "{{.SelectedLocalCommit.Hash}}" | wl-copy'
+    description: "Yank full commit hash to clipboard"
+
+  - key: "V"
+    context: "commits"
+    command: 'git show --stat --color=always "{{.SelectedLocalCommit.Hash}}" | less -R'
+    output: "terminal"
+    description: "Show commit diffstat (verbose)"
+
+  - key: "<ctrl+p>"
+    context: "localBranches"
+    command: >-
+      git push -u origin "{{.SelectedLocalBranch.Name}}" && xdg-open "$(git remote get-url origin | sed 's|git@([^:]*):|https://\1/|;s|.git$||')/compare/{{.SelectedLocalBranch.Name}}" >/dev/null 2>&1
+    description: "Push branch & open PR in browser"
+    loadingText: "Pushing branch…"
+
+  - key: "<ctrl+m>"
+    context: "global"
+    command: "git maintenance run --auto"
+    description: "Run git maintenance (gc, pack, etc.)"
+    loadingText: "Running git maintenance…"
+
+  - key: "<ctrl+b>"
+    context: "localBranches"
+    prompts:
+      - type: "menu"
+        title: "Rebase onto which base?"
+        key: "Base"
+        options:
+          - name: "main"
+            value: "main"
+          - name: "master"
+            value: "master"
+          - name: "develop"
+            value: "develop"
+    command: 'git rebase --interactive "{{.Form.Base}}"'
+    output: "terminal"
+    description: "Interactive rebase onto base branch"

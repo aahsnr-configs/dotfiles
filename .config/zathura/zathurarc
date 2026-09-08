@@ -1,0 +1,57 @@
+# ~/.config/zathura/zathurarc
+
+# ----------------------------------
+# Catppuccin Macchiato Theme
+# ----------------------------------
+
+include noctaliarc
+
+# ----------------------------------
+# Display Settings
+# ----------------------------------
+set recolor                     "true"
+set recolor-keephue             "true"
+set adjust-open                 "best-fit"
+set pages-per-row               1
+set first-page-column           "1:1"
+set scroll-page-aware           "true"
+set scroll-full-overlap         0.01
+set scroll-step                 50
+set scroll-wrap                 "false"
+set render-loading              "false"
+
+# ----------------------------------
+# UI Settings
+# ----------------------------------
+set guioptions                  ""
+set window-title-basename       "true"
+set statusbar-home-tilde        "true"
+set statusbar-h-padding         8
+set statusbar-v-padding         8
+set font                        "JetBrains Mono Medium 13"
+
+# ----------------------------------
+# Search Settings
+# ----------------------------------
+set incremental-search          "true"
+set search-hadjust              "true"
+
+# ----------------------------------
+# System Integration
+# ----------------------------------
+set selection-clipboard         "clipboard"
+set dbus-service                "true"
+set synctex true
+set synctex-editor-command "emacsclient +%{line} %{input}"
+
+# ----------------------------------
+# Using Default Keybindings Only
+# ----------------------------------
+# All keybindings removed to use zathura defaults
+# Default bindings include:
+# - Arrow keys or hjkl for navigation
+# - Page Up/Down for page navigation
+# - +/- for zoom
+# - / for search
+# - q to quit
+# - Tab for index toggle

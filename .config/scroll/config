@@ -1,0 +1,26 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# ~/.config/scroll/config  –  Main entry point
+
+# ── Global variables ──────────────────────────────────────────────────────────
+# set $left      Left
+# set $down      Down
+# set $up        Up
+# set $right     Right
+set $terminal   kitty
+set $browser    brave
+set $guifm      thunar
+set $editor     emacsclient -c -a 'emacs'
+set $ipc        qs -c noctalia-shell ipc call
+set $screenshot ~/bin/screenshot
+
+# ── Modular configuration files ───────────────────────────────────────────────
+include ~/.config/scroll/conf.d/autostart.conf
+include ~/.config/scroll/conf.d/output.conf
+include ~/.config/scroll/conf.d/input.conf
+include ~/.config/scroll/conf.d/settings.conf
+include ~/.config/scroll/conf.d/workspaces.conf
+include ~/.config/scroll/conf.d/rules.conf
+include ~/.config/scroll/conf.d/binds.conf
+
+include ~/.config/scroll/noctalia
+
