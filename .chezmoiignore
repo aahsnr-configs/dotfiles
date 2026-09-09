@@ -1,0 +1,8 @@
+sample 
+git-note
+.markdownlint-cli2.yaml
+.gitignore
+notes.md/
+vscode/
+.bashrc
+.bash_profile
