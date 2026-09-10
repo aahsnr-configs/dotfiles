@@ -6,3 +6,15 @@ notes.md/
 vscode/
 .bashrc
 .bash_profile
+.config/anyrun/
+.config/caelestia/
+.config/devbox/
+.config/direnv/
+.config/environment.d/
+.config/fish/
+.config/foot/
+.config/mango/
+.config/mise/
+.config/niri/
+.config/scroll/
+.config/uwsm/
