@@ -9,8 +9,6 @@ return {
   "AstroNvim/astrocommunity",
   { import = "astrocommunity.pack.lua" },
   { import = "astrocommunity.pack.markdown" },
-  { import = "astrocommunity.pack.typescript" },
-  { import = "astrocommunity.pack.html-css" },
   { import = "astrocommunity.markdown-and-latex.render-markdown-nvim" },
   { import = "astrocommunity.pack.nix" },
   { import = "astrocommunity.pack.bash" },
@@ -18,9 +16,6 @@ return {
   { import = "astrocommunity.pack.python.base" },
   { import = "astrocommunity.pack.python.pyrefly" },
   { import = "astrocommunity.pack.python.ruff" },
-  { import = "astrocommunity.pack.xml" },
-  { import = "astrocommunity.pack.astro" },
-  { import = "astrocommunity.pack.yaml" },
-  -- { import = "astrocommunity.note-taking.neorg" },
+  { import = "astrocommunity.pack.rainbow-delimiter-indent-blankline" },
   -- import/override with your plugins folder
 }
