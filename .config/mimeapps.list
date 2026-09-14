@@ -29,6 +29,7 @@ x-scheme-handler/etcher=balenaEtcher.desktop
 x-scheme-handler/magnet=userapp-transmission-gtk-Q15FO3.desktop
 x-scheme-handler/claude=com.anthropic.Claude.desktop
 x-scheme-handler/antigravity=antigravity.desktop
+x-scheme-handler/codex=chatgpt.desktop
 
 [Added Associations]
 x-scheme-handler/http=zen.desktop;
