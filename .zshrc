@@ -819,3 +819,7 @@ esac
 
 # opencode
 export PATH=/home/ahsan/.opencode/bin:$PATH
+
+
+# Added by Antigravity CLI installer
+export PATH="/home/ahsan/.local/bin:$PATH"
