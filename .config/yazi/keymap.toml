@@ -290,7 +290,7 @@ prepend_keymap = [
 [cmp]
 prepend_keymap = [
     { on = "<Tab>",    run = "arrow 1",  desc = "Next completion candidate" },
-    { on = "<BackTab>", run = "arrow -1", desc = "Previous completion candidate" },
+    { on = "<S-Tab>",  run = "arrow -1", desc = "Previous completion candidate" },
     { on = "<Up>",     run = "arrow -1", desc = "Previous candidate" },
     { on = "<Down>",   run = "arrow 1",  desc = "Next candidate" },
     { on = "<Enter>",  run = "close --submit", desc = "Accept completion" },
