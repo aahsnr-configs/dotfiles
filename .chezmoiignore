@@ -2,7 +2,7 @@ sample
 git-note
 .markdownlint-cli2.yaml
 .gitignore
-notes.md/
+notes/
 vscode/
 .bashrc
 .bash_profile
