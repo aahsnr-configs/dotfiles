@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 code --install-extension bearylabs.doom
 code --install-extension charliermarsh.ruff
 code --install-extension james-yu.latex-workshop

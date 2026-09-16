@@ -29,7 +29,7 @@ unfocus = "hide"
 
 [scratchpads.tuigit]
 command = "kitty --class git-terminal -e lazygit"
-class = "thunar"
+class = "git-terminal"
 size = "80% 80%"
 margin = 50
 animation = "fromTop"

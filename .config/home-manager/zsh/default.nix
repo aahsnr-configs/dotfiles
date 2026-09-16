@@ -62,7 +62,7 @@
 
       # Yazi cd on quit
       function yy() {
-        local tmp="$ (mktemp -t "yazi-cwd.XXXXXX")"
+        local tmp="$(mktemp -t "yazi-cwd.XXXXXX")"
         yazi "$@" --cwd-file="$tmp"
         if cwd="$(< "$tmp")" && [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
           cd -- "$cwd"

@@ -83,7 +83,6 @@ alias sctls='sudo systemctl start'
 alias vi='nvim'
 alias box-stop='distrobox-stop --all --yes'
 alias box-rm='distrobox-rm --all --force'
-alias brave='flatpak run com.brave.Browser'
 
 # Options
 set fish_greeting

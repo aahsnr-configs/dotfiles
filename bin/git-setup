@@ -1013,7 +1013,7 @@ verify_setup() {
                 print_warning "Could not create test directory in ${dir}"
                 continue
             fi
-            trap "rm -rf '${test_dir}'" RETURN
+            trap 'rm -rf "${test_dir}"' RETURN
 
             if git -C "${test_dir}" init &>/dev/null; then
                 local detected_email

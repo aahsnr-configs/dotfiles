@@ -159,7 +159,7 @@ prepend_keymap = [
     { on = "t",        run = "tab_create --current",     desc = "New tab (current dir)" },
     { on = "T",        run = "tab_create",               desc = "New tab (home dir)" },
     { on = "W",        run = "close",                    desc = "Close current tab" },
-    { on = "<BackTab>", run = "tab_switch -1 --relative", desc = "Previous tab" },
+    { on = "<S-Tab>", run = "tab_switch -1 --relative", desc = "Previous tab" },
     # Number keys switch tabs (default is already bound in preset, keeping for clarity)
     { on = "1", run = "tab_switch 0", desc = "Switch to tab 1" },
     { on = "2", run = "tab_switch 1", desc = "Switch to tab 2" },
@@ -182,10 +182,8 @@ prepend_keymap = [
     { on = ["z", "z"], run = "plugin archive --args=zip",    desc = "Compress → ZIP" },
     { on = ["z", "g"], run = "plugin archive --args=tar.gz", desc = "Compress → TAR.GZ" },
     # Extraction (ad-hoc shell — bsdtar is available on Arch/Debian via libarchive)
-    { on = ["z", "x"], run = 'shell -- bsdtar -xvf "$1"',
-        desc = "Extract archive here" },
-    { on = ["z", "X"], run = '''shell -- mkdir -p "${1%.*}" && bsdtar -xvf "$1" -C "${1%.*}"''',
-        desc = "Extract to subfolder" },
+    { on = ["z", "x"], run = 'shell -- bsdtar -xvf "$1"', desc = "Extract archive here" },
+    { on = ["z", "X"], run = '''shell -- mkdir -p "${1%.*}" && bsdtar -xvf "$1" -C "${1%.*}"''', desc = "Extract to subfolder" },
     # Other plugins
     { on = ["z", "b"], run = "plugin bypass",  desc = "Bypass single-child dir" },
     { on = ["z", "c"], run = "plugin chmod",   desc = "Chmod selected files" },

@@ -7,7 +7,7 @@ aliases:
   co: pr checkout
   auth-common: auth switch --hostname github.com --user aahsnr-common
   auth-configs: auth switch --hostname github.com --user aahsnr-configs
-  auth-peronal: auth switch --hostname github.com --user aahsnr-personal
+  auth-personal: auth switch --hostname github.com --user aahsnr-personal
   auth-work: auth switch --hostname github.com --user aahsnr-work
 http_unix_socket:
 browser: brave
