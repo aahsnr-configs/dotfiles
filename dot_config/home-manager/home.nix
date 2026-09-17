@@ -2,7 +2,7 @@
 {
   home = {
     username = "ahsan";
-    homeDirectory = "/home/ahsan";
+    homeDirectory = "/home/" + config.home.username;
     stateVersion = "26.11";
     extraOutputsToInstall = [
       "doc"
