@@ -1,0 +1,4 @@
+# Repo documentation — not part of the target ($HOME) state
+README.md
+cleanup-git.md
+notes/**
