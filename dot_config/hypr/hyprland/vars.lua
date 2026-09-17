@@ -9,7 +9,7 @@ M.browser = "brave"
 M.guifm = "thunar"
 M.editor = "emacsclient -c -a 'emacs'"
 M.ipc = "noctalia msg "
-M.screenshot = "~/bin/screenshot"
+M.screenshot = "/usr/libexec/halcyon-image/screenshot"
 M.pypr = "/usr/bin/pypr-client"
 M.mainMod = "SUPER"
 

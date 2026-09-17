@@ -603,7 +603,6 @@ alias du='dust'
 alias eza='eza --icons auto --git --group-directories-first --header'
 alias fd='fd --hidden --no-ignore --absolute-path'
 alias gg='lazygit'
-alias hm-switch='home-manager switch'
 alias la='eza -a'
 alias ll='eza -l'
 alias lla='eza -la'
@@ -823,3 +822,8 @@ export PATH="$HOME/.opencode/bin:$PATH"
 
 # Added by Antigravity CLI installer
 export PATH="$HOME/.local/bin:$PATH"
+
+# halcyon user helpers (deployed from dot_bin)
+export PATH="$HOME/.bin:$PATH"
+
+alias hm-switch="home-manager switch"

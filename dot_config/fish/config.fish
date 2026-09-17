@@ -69,7 +69,6 @@ alias eza='eza --icons auto --git --group-directories-first --header'
 alias fd='fd --hidden --no-ignore --absolute-path'
 alias gg='lazygit'
 alias grep='rg'
-alias hm-switch='home-manager switch'
 alias la='eza -a'
 alias ll='eza -l'
 alias lla='eza -la'
@@ -114,3 +113,5 @@ echo 'uvx --generate-shell-completion fish | source' > ~/.config/fish/completion
 #direnv hook fish | source
 
 set -x SSH_AUTH_SOCK "$XDG_RUNTIME_DIR/ssh-agent.socket"
+
+alias hm-switch="home-manager switch"
