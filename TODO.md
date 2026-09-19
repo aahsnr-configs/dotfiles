@@ -1,0 +1,1 @@
+- [ ] Make kitty shell

@@ -11,7 +11,7 @@ set $browser    brave
 set $guifm      thunar
 set $editor     emacsclient -c -a 'emacs'
 set $ipc        qs -c noctalia-shell ipc call
-set $screenshot /usr/libexec/halcyon-image/screenshot
+set $screenshot /usr/bin/screenshot
 set $lock_cmd   qs -c noctalia-shell ipc call lockScreen lock
 
 # ── Modular configuration files ───────────────────────────────────────────────
