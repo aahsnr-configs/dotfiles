@@ -1,0 +1,3658 @@
+<!DOCTYPE html>
+<html lang="en" class="no-js" data-theme="night">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Replicating Claude with OpenCode Go + an open-source stack — a Tokyo Night field guide</title>
+<meta name="description" content="A single-file, interactive guide to rebuilding a Claude-style workflow on OpenCode Go: AGENTS.md rules and skills, MCP search, Pydantic AI structured outputs, LiteLLM routing, custom tools, real monthly costs, known gaps and the audit that corrected the first draft.">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#1a1b26">
+<meta name="generator" content="build_guide.py from tmp.md">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231a1b26'/%3E%3Ccircle cx='13' cy='13' r='5' fill='%237aa2f7'/%3E%3Ccircle cx='21' cy='19' r='5' fill='%23bb9af7'/%3E%3C/svg%3E">
+<script>
+(function () {
+  try {
+    var names = ["night", "storm", "moon", "day"];
+    var saved = window.localStorage.getItem("tnguide.theme");
+    if (names.indexOf(saved) === -1) {
+      saved = window.matchMedia("(prefers-color-scheme: light)").matches ? "day" : "night";
+    }
+    document.documentElement.setAttribute("data-theme", saved);
+  } catch (err) { /* keep the default theme */ }
+})();
+</script>
+<style>
+/* ==========================================================================
+   OpenCode Go x Claude - single-file guide stylesheet
+   Palette source: folke/tokyonight.nvim (night / storm / moon / day)
+   ========================================================================== */
+
+/* ---------- Tokyo Night "night" (default) ---------- */
+:root,
+[data-theme="night"] {
+  color-scheme: dark;
+  --tn-bg: #1a1b26;
+  --tn-bg-dark: #16161e;
+  --tn-sunken: #0c0e14;
+  --tn-bg-highlight: #292e42;
+  --tn-fg: #c0caf5;
+  --tn-fg-dark: #a9b1d6;
+  --tn-comment: #565f89;
+  --tn-dark3: #545c7e;
+  --tn-blue: #7aa2f7;
+  --tn-blue0: #3d59a1;
+  --tn-blue1: #2ac3de;
+  --tn-blue5: #89ddff;
+  --tn-cyan: #7dcfff;
+  --tn-magenta: #bb9af7;
+  --tn-purple: #9d7cd8;
+  --tn-orange: #ff9e64;
+  --tn-yellow: #e0af68;
+  --tn-green: #9ece6a;
+  --tn-green1: #73daca;
+  --tn-teal: #1abc9c;
+  --tn-red: #f7768e;
+  --tn-red1: #db4b4b;
+  --tn-gutter: #3b4261;
+  --tn-term-black: #414868;
+  --tn-selection: #283457;
+  --border: rgba(192, 202, 245, 0.16);
+  --border-strong: rgba(192, 202, 245, 0.32);
+  --meter-track: rgba(192, 202, 245, 0.14);
+  --shadow: 0 10px 30px rgba(4, 6, 14, 0.55), 0 2px 6px rgba(4, 6, 14, 0.4);
+  --syn-comment: #565f89;
+  --syn-string: #9ece6a;
+  --syn-number: #ff9e64;
+  --syn-keyword: #9d7cd8;
+  --syn-func: #7aa2f7;
+  --syn-type: #e0af68;
+  --syn-var: #a9b1d6;
+  --syn-meta: #2ac3de;
+}
+
+/* ---------- Tokyo Night "storm" ---------- */
+[data-theme="storm"] {
+  color-scheme: dark;
+  --tn-bg: #24283b;
+  --tn-bg-dark: #1f2335;
+  --tn-sunken: #1b1e2d;
+  --tn-bg-highlight: #292e42;
+  --tn-fg: #c0caf5;
+  --tn-fg-dark: #a9b1d6;
+  --tn-comment: #565f89;
+  --tn-dark3: #545c7e;
+  --tn-blue: #7aa2f7;
+  --tn-blue0: #3d59a1;
+  --tn-blue1: #2ac3de;
+  --tn-blue5: #89ddff;
+  --tn-cyan: #7dcfff;
+  --tn-magenta: #bb9af7;
+  --tn-purple: #9d7cd8;
+  --tn-orange: #ff9e64;
+  --tn-yellow: #e0af68;
+  --tn-green: #9ece6a;
+  --tn-green1: #73daca;
+  --tn-teal: #1abc9c;
+  --tn-red: #f7768e;
+  --tn-red1: #db4b4b;
+  --tn-gutter: #3b4261;
+  --tn-term-black: #414868;
+  --tn-selection: #2e3c64;
+  --border: rgba(192, 202, 245, 0.16);
+  --border-strong: rgba(192, 202, 245, 0.32);
+  --meter-track: rgba(192, 202, 245, 0.14);
+  --shadow: 0 10px 30px rgba(4, 6, 14, 0.5), 0 2px 6px rgba(4, 6, 14, 0.35);
+  --syn-comment: #565f89;
+  --syn-string: #9ece6a;
+  --syn-number: #ff9e64;
+  --syn-keyword: #9d7cd8;
+  --syn-func: #7aa2f7;
+  --syn-type: #e0af68;
+  --syn-var: #a9b1d6;
+  --syn-meta: #2ac3de;
+}
+
+/* ---------- Tokyo Night "moon" ---------- */
+[data-theme="moon"] {
+  color-scheme: dark;
+  --tn-bg: #222436;
+  --tn-bg-dark: #1e2030;
+  --tn-sunken: #191b29;
+  --tn-bg-highlight: #2f334d;
+  --tn-fg: #c8d3f5;
+  --tn-fg-dark: #828bb8;
+  --tn-comment: #636da6;
+  --tn-dark3: #545c7e;
+  --tn-blue: #82aaff;
+  --tn-blue0: #3e68d7;
+  --tn-blue1: #65bcff;
+  --tn-blue5: #89ddff;
+  --tn-cyan: #86e1fc;
+  --tn-magenta: #c099ff;
+  --tn-purple: #fca7ea;
+  --tn-orange: #ff966c;
+  --tn-yellow: #ffc777;
+  --tn-green: #c3e88d;
+  --tn-green1: #4fd6be;
+  --tn-teal: #4fd6be;
+  --tn-red: #ff757f;
+  --tn-red1: #c53b53;
+  --tn-gutter: #3b4261;
+  --tn-term-black: #444a73;
+  --tn-selection: #2d3f76;
+  --border: rgba(200, 211, 245, 0.16);
+  --border-strong: rgba(200, 211, 245, 0.32);
+  --meter-track: rgba(200, 211, 245, 0.14);
+  --shadow: 0 10px 30px rgba(4, 6, 14, 0.5), 0 2px 6px rgba(4, 6, 14, 0.35);
+  --syn-comment: #636da6;
+  --syn-string: #c3e88d;
+  --syn-number: #ff966c;
+  --syn-keyword: #fca7ea;
+  --syn-func: #82aaff;
+  --syn-type: #ffc777;
+  --syn-var: #828bb8;
+  --syn-meta: #65bcff;
+}
+
+/* ---------- Tokyo Night "day" ---------- */
+[data-theme="day"] {
+  color-scheme: light;
+  --tn-bg: #e1e2e7;
+  --tn-bg-dark: #d0d5e3;
+  --tn-sunken: #c1c9df;
+  --tn-bg-highlight: #c4c8da;
+  --tn-fg: #3760bf;
+  --tn-fg-dark: #6172b0;
+  --tn-comment: #848cb5;
+  --tn-dark3: #8990b3;
+  --tn-blue: #2e7de9;
+  --tn-blue0: #7890dd;
+  --tn-blue1: #188092;
+  --tn-blue5: #006a83;
+  --tn-cyan: #007197;
+  --tn-magenta: #9854f1;
+  --tn-purple: #7847bd;
+  --tn-orange: #b15c00;
+  --tn-yellow: #8c6c3e;
+  --tn-green: #587539;
+  --tn-green1: #387068;
+  --tn-teal: #118c74;
+  --tn-red: #f52a65;
+  --tn-red1: #c64343;
+  --tn-gutter: #a8aecb;
+  --tn-term-black: #a1a6c5;
+  --tn-selection: #b7c1e3;
+  --border: rgba(55, 96, 191, 0.2);
+  --border-strong: rgba(55, 96, 191, 0.38);
+  --meter-track: rgba(55, 96, 191, 0.16);
+  --shadow: 0 10px 30px rgba(55, 96, 191, 0.14), 0 2px 6px rgba(55, 96, 191, 0.1);
+  --syn-comment: #848cb5;
+  --syn-string: #587539;
+  --syn-number: #b15c00;
+  --syn-keyword: #7847bd;
+  --syn-func: #2e7de9;
+  --syn-type: #8c6c3e;
+  --syn-var: #6172b0;
+  --syn-meta: #188092;
+}
+
+/* ---------- Semantic tokens (theme agnostic) ---------- */
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", ui-monospace,
+    SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --bg: var(--tn-bg);
+  --elev: var(--tn-bg-dark);
+  --sunken: var(--tn-sunken);
+  --hover: var(--tn-bg-highlight);
+  --fg: var(--tn-fg);
+  --fg-soft: var(--tn-fg-dark);
+  --fg-muted: var(--tn-comment);
+  --accent: var(--tn-blue);
+  --accent-alt: var(--tn-magenta);
+  --link: var(--tn-blue);
+  --radius: 12px;
+  --radius-sm: 7px;
+  --pad: clamp(1rem, 3vw, 2rem);
+  --maxw: 1560px;
+  --topbar-h: 60px;
+  --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+/* ---------- Reset / base ---------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: clamp(15px, 0.55vw + 13.6px, 17px);
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  -webkit-font-smoothing: antialiased;
+}
+::selection {
+  background: var(--tn-selection);
+  color: var(--tn-fg);
+}
+img,
+svg,
+canvas,
+video {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+[hidden] {
+  display: none !important;
+}
+a {
+  color: var(--link);
+  text-decoration-color: var(--border-strong);
+  text-decoration-color: color-mix(in srgb, var(--link) 45%, transparent);
+  text-underline-offset: 0.2em;
+}
+a:hover {
+  color: var(--tn-cyan);
+}
+:focus-visible {
+  outline: 2px solid var(--tn-cyan);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--tn-cyan);
+  outline-offset: 2px;
+}
+hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 2rem 0;
+}
+
+/* ---------- Utilities ---------- */
+.sr-only {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.skip-link {
+  position: absolute;
+  left: 0.75rem;
+  top: -4rem;
+  z-index: 100;
+  padding: 0.6rem 1rem;
+  background: var(--tn-blue);
+  color: var(--tn-bg);
+  font-weight: 700;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  transition: top 0.18s var(--ease);
+}
+.skip-link:focus {
+  top: 0;
+  color: var(--tn-bg);
+}
+
+/* ---------- Reading progress ---------- */
+.progress {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: transparent;
+  z-index: 60;
+  pointer-events: none;
+}
+.progress__bar {
+  display: block;
+  height: 100%;
+  width: var(--p, 0%);
+  background: linear-gradient(
+    90deg,
+    var(--tn-blue),
+    var(--tn-cyan),
+    var(--tn-magenta),
+    var(--tn-orange)
+  );
+  transition: width 0.1s linear;
+}
+
+/* ---------- Top bar ---------- */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  height: var(--topbar-h);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0 var(--pad);
+  background: var(--elev);
+  background: color-mix(in srgb, var(--elev) 88%, transparent);
+  backdrop-filter: blur(12px) saturate(140%);
+  border-bottom: 1px solid var(--border);
+}
+.topbar__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--fg);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.topbar__brand:hover {
+  color: var(--fg);
+}
+.topbar__dot {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 200deg,
+    var(--tn-blue),
+    var(--tn-cyan),
+    var(--tn-green),
+    var(--tn-yellow),
+    var(--tn-orange),
+    var(--tn-red),
+    var(--tn-magenta),
+    var(--tn-blue)
+  );
+  box-shadow: 0 0 12px rgba(122, 162, 247, 0.5);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--tn-blue) 55%, transparent);
+}
+.topbar__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.topbar__name small {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--fg-muted);
+  letter-spacing: 0.02em;
+}
+.topbar__spacer {
+  flex: 1 1 auto;
+}
+.topbar__tools {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+.icon-btn,
+.ghost-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--fg-soft);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  cursor: pointer;
+  transition: background 0.18s var(--ease), color 0.18s var(--ease),
+    border-color 0.18s var(--ease);
+}
+.icon-btn:hover,
+.ghost-btn:hover {
+  background: var(--hover);
+  color: var(--fg);
+  border-color: var(--border-strong);
+}
+.icon-btn[aria-pressed="true"] {
+  color: var(--tn-bg);
+  background: var(--tn-blue);
+  border-color: var(--tn-blue);
+}
+.icon-btn svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ---------- Theme switcher ---------- */
+.themes {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--sunken);
+}
+.themes button {
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--fg-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+  transition: color 0.18s var(--ease), background 0.18s var(--ease);
+}
+.themes button:hover {
+  color: var(--fg);
+}
+.themes button[aria-pressed="true"] {
+  color: var(--tn-bg);
+  background: var(--tn-cyan);
+}
+
+/* ---------- Shell ---------- */
+.shell {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 1.5rem var(--pad) 4rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2rem;
+  align-items: start;
+}
+@media (min-width: 1120px) {
+  .shell {
+    grid-template-columns: 320px minmax(0, 1fr);
+    gap: 2.5rem;
+    padding-top: 2rem;
+  }
+}
+
+/* ---------- Sidebar / TOC ---------- */
+.sidebar {
+  min-width: 0;
+}
+.sidebar__inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  max-height: calc(100vh - var(--topbar-h) - 2rem);
+}
+@media (min-width: 1120px) {
+  .sidebar__inner {
+    position: sticky;
+    top: calc(var(--topbar-h) + 1rem);
+  }
+}
+.sidebar__title {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.toc-search {
+  position: relative;
+}
+.toc-search input {
+  width: 100%;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--fg);
+  background: var(--sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 2.2rem 0.55rem 2.1rem;
+}
+.toc-search input::placeholder {
+  color: var(--fg-muted);
+}
+.toc-search__icon {
+  position: absolute;
+  left: 0.65rem;
+  top: 50%;
+  translate: 0 -50%;
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: var(--fg-muted);
+  stroke-width: 2;
+  pointer-events: none;
+}
+.toc-search__clear {
+  position: absolute;
+  right: 0.35rem;
+  top: 50%;
+  translate: 0 -50%;
+  width: 26px;
+  height: 26px;
+  display: none;
+  place-items: center;
+  font-size: 0.9rem;
+  line-height: 1;
+  color: var(--fg-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.toc-search__clear.is-visible {
+  display: grid;
+}
+.toc-search__clear:hover {
+  color: var(--fg);
+  background: var(--hover);
+}
+.toc-status {
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--fg-muted);
+}
+.toc {
+  overflow: auto;
+  min-height: 0;
+  padding-right: 0.35rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--tn-gutter) transparent;
+}
+.toc ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.toc li {
+  margin: 1px 0;
+}
+.toc a {
+  display: block;
+  font-size: 0.83rem;
+  line-height: 1.4;
+  color: var(--fg-soft);
+  text-decoration: none;
+  padding: 0.34rem 0.6rem;
+  border-left: 2px solid transparent;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  transition: background 0.16s var(--ease), color 0.16s var(--ease),
+    border-color 0.16s var(--ease);
+}
+.toc a:hover {
+  background: var(--hover);
+  color: var(--fg);
+}
+.toc a.is-active {
+  color: var(--tn-blue);
+  background: var(--hover);
+  background: color-mix(in srgb, var(--tn-blue) 14%, transparent);
+  border-left-color: var(--tn-blue);
+  font-weight: 600;
+}
+.toc__part > a {
+  font-weight: 700;
+  color: var(--fg);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.7rem;
+  margin-top: 0.6rem;
+}
+.toc__sub a {
+  padding-left: 1.5rem;
+  font-size: 0.79rem;
+  color: var(--fg-muted);
+}
+.toc__subsub a {
+  padding-left: 2.3rem;
+  font-size: 0.76rem;
+  color: var(--fg-muted);
+}
+.toc__part.is-hidden,
+.toc__item.is-hidden {
+  display: none;
+}
+.toc-empty {
+  display: none;
+  font-size: 0.8rem;
+  color: var(--fg-muted);
+  padding: 0.5rem 0.6rem;
+}
+.toc-empty.is-visible {
+  display: block;
+}
+.sidebar__toggle-row {
+  display: flex;
+  gap: 0.4rem;
+}
+@media (min-width: 1120px) {
+  .sidebar__toggle-row {
+    display: none;
+  }
+}
+
+/* ---------- Hero ---------- */
+.hero {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--elev);
+  padding: clamp(1.4rem, 3vw, 2.4rem);
+  box-shadow: var(--shadow);
+}
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: -40% -20% auto -20%;
+  height: 320px;
+  background: linear-gradient(135deg, rgba(122, 162, 247, 0.16), transparent 60%);
+  background: radial-gradient(
+      45% 60% at 18% 40%,
+      color-mix(in srgb, var(--tn-blue) 28%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      40% 60% at 78% 20%,
+      color-mix(in srgb, var(--tn-magenta) 24%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      35% 55% at 55% 85%,
+      color-mix(in srgb, var(--tn-green1) 18%, transparent),
+      transparent 70%
+    );
+  filter: blur(6px);
+  pointer-events: none;
+}
+.hero > * {
+  position: relative;
+}
+.hero__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0 0 0.9rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--tn-cyan);
+}
+.hero__eyebrow::before {
+  content: "";
+  width: 26px;
+  height: 1px;
+  background: var(--tn-cyan);
+}
+.hero__title {
+  margin: 0 0 0.6rem;
+  font-size: clamp(1.7rem, 3.6vw, 2.7rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+.hero__title em {
+  font-style: normal;
+  color: var(--tn-magenta);
+}
+.hero__lede {
+  margin: 0;
+  max-width: 68ch;
+  color: var(--fg-soft);
+  font-size: 1.02rem;
+}
+.hero__lede strong {
+  color: var(--fg);
+}
+.stats {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+  margin: 1.4rem 0 0;
+  padding: 0;
+}
+.stat {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--stat-color, var(--tn-blue));
+  border-radius: var(--radius-sm);
+  background: var(--sunken);
+  padding: 0.7rem 0.85rem;
+}
+.stat__value {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 1.28rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--stat-color, var(--tn-blue));
+}
+.stat__label {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.76rem;
+  color: var(--fg-muted);
+}
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1.4rem;
+}
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-decoration: none;
+  padding: 0.6rem 1rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: transform 0.16s var(--ease), filter 0.16s var(--ease),
+    background 0.16s var(--ease);
+}
+.cta--primary {
+  background: var(--tn-blue);
+  color: var(--tn-bg);
+}
+.cta--primary:hover {
+  color: var(--tn-bg);
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+.cta--ghost {
+  background: transparent;
+  color: var(--fg);
+  border-color: var(--border-strong);
+}
+.cta--ghost:hover {
+  color: var(--fg);
+  background: var(--hover);
+  transform: translateY(-1px);
+}
+.gap-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 1.1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.gap-chips li {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--tn-red);
+  background: rgba(247, 118, 142, 0.12);
+  border: 1px solid rgba(247, 118, 142, 0.34);
+  background: color-mix(in srgb, var(--tn-red) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tn-red) 34%, transparent);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+}
+
+/* ---------- Content / parts / sections ---------- */
+.content {
+  min-width: 0;
+}
+.part {
+  margin: 0 0 3rem;
+}
+.part__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.9rem 1.1rem;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--part-color, var(--tn-blue));
+  border-radius: var(--radius);
+  background: var(--sunken);
+  background: linear-gradient(
+    100deg,
+    color-mix(in srgb, var(--part-color, var(--tn-blue)) 14%, transparent),
+    transparent 60%
+  );
+  margin-bottom: 1.6rem;
+}
+.part__kicker {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--part-color, var(--tn-blue));
+}
+.part__title {
+  margin: 0;
+  font-size: clamp(1.15rem, 2vw, 1.5rem);
+  letter-spacing: -0.01em;
+}
+.part__note {
+  margin: 0;
+  flex: 1 1 22ch;
+  font-size: 0.86rem;
+  color: var(--fg-soft);
+}
+.doc-section {
+  scroll-margin-top: calc(var(--topbar-h) + 1rem);
+  margin-bottom: 2.6rem;
+}
+.doc-section > h2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 0.4rem;
+  font-size: clamp(1.3rem, 2.4vw, 1.75rem);
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+.doc-section > h2::before {
+  content: "";
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 2px;
+  background: var(--tn-blue);
+  box-shadow: 0 0 0 4px rgba(122, 162, 247, 0.18);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--tn-blue) 18%, transparent);
+  flex: none;
+}
+.doc-section > h2 .h-num {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--fg-muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+}
+.sub {
+  scroll-margin-top: calc(var(--topbar-h) + 1.2rem);
+  margin: 2rem 0 0;
+}
+.sub > h3,
+.subsub > h4 {
+  margin: 0 0 0.5rem;
+  letter-spacing: -0.01em;
+}
+.sub > h3 {
+  font-size: 1.12rem;
+  color: var(--fg);
+}
+.sub > h3::before {
+  content: "\2503";
+  color: var(--tn-magenta);
+  margin-right: 0.45rem;
+  font-weight: 400;
+}
+.subsub {
+  scroll-margin-top: calc(var(--topbar-h) + 1.4rem);
+  margin: 1.5rem 0 0;
+}
+.subsub > h4 {
+  font-size: 0.98rem;
+  color: var(--fg-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.82rem;
+}
+.doc-section p,
+.sub p,
+.subsub p {
+  margin: 0.85rem 0;
+  max-width: 78ch;
+}
+.lede {
+  font-size: 1.02rem;
+  color: var(--fg-soft);
+}
+strong {
+  color: var(--fg);
+}
+em {
+  color: var(--tn-yellow);
+}
+ul.bullets,
+ol.steps {
+  margin: 0.85rem 0;
+  padding-left: 1.4rem;
+  max-width: 78ch;
+}
+ul.bullets li,
+ol.steps li {
+  margin: 0.35rem 0;
+}
+ul.bullets li::marker {
+  color: var(--tn-blue1);
+}
+ol.steps li::marker {
+  color: var(--tn-magenta);
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+kbd {
+  font-family: var(--font-mono);
+  font-size: 0.78em;
+  padding: 0.1em 0.42em;
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--sunken);
+  color: var(--fg);
+}
+
+/* ---------- Inline code / source markers ---------- */
+p code,
+li code,
+th code,
+td code,
+.callout code,
+summary code,
+figcaption code,
+.doc-section > p code {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  padding: 0.12em 0.4em;
+  border-radius: 5px;
+  background: var(--sunken);
+  border: 1px solid var(--border);
+  color: var(--tn-green1);
+  white-space: nowrap;
+}
+.cite {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--tn-orange);
+  background: rgba(255, 158, 100, 0.14);
+  border: 1px solid rgba(255, 158, 100, 0.32);
+  background: color-mix(in srgb, var(--tn-orange) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tn-orange) 32%, transparent);
+  border-radius: 4px;
+  padding: 0 0.28em;
+  margin: 0 0.08em;
+  vertical-align: super;
+  line-height: 1;
+  cursor: help;
+}
+body[data-cites="off"] .cite {
+  display: none;
+}
+
+/* ---------- Callouts ---------- */
+.callout {
+  position: relative;
+  margin: 1.2rem 0;
+  padding: 0.95rem 1.1rem 0.95rem 1.15rem;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--co-color, var(--tn-blue));
+  border-radius: var(--radius-sm);
+  background: var(--sunken);
+  max-width: 82ch;
+}
+.callout__title {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--co-color, var(--tn-blue));
+  margin-bottom: 0.3rem;
+}
+.callout p {
+  margin: 0.35rem 0;
+  max-width: none;
+  font-size: 0.94rem;
+}
+.callout--warn {
+  --co-color: var(--tn-red);
+}
+.callout--tip {
+  --co-color: var(--tn-green);
+}
+.callout--info {
+  --co-color: var(--tn-cyan);
+}
+.callout--note {
+  --co-color: var(--tn-magenta);
+}
+
+/* ---------- Tables ---------- */
+.table-wrap {
+  margin: 1.3rem 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: auto;
+  background: var(--elev);
+  max-width: 100%;
+  scrollbar-width: thin;
+  scrollbar-color: var(--tn-gutter) transparent;
+}
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  min-width: 560px;
+}
+.data-table caption {
+  caption-side: top;
+  text-align: left;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  border-bottom: 1px solid var(--border);
+  background: var(--sunken);
+}
+.data-table th,
+.data-table td {
+  padding: 0.6rem 0.85rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+}
+.data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--sunken);
+  color: var(--fg);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.data-table tbody tr:nth-child(even) {
+  background: var(--elev);
+  background: color-mix(in srgb, var(--fg) 3%, transparent);
+}
+.data-table tbody tr:hover {
+  background: var(--hover);
+}
+.data-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.data-table td:first-child {
+  color: var(--fg);
+  font-weight: 600;
+}
+.th-sort {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+.th-sort:hover {
+  color: var(--tn-cyan);
+}
+.th-sort::after {
+  content: "\2195";
+  font-size: 0.7rem;
+  opacity: 0.4;
+}
+.th-sort[data-dir="asc"]::after {
+  content: "\2191";
+  opacity: 1;
+  color: var(--tn-green);
+}
+.th-sort[data-dir="desc"]::after {
+  content: "\2193";
+  opacity: 1;
+  color: var(--tn-orange);
+}
+
+/* ---------- Chips / meters ---------- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 0.12rem 0.55rem;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+.chip--low,
+.chip--none {
+  color: var(--tn-green);
+}
+.chip--medium {
+  color: var(--tn-yellow);
+}
+.chip--high,
+.chip--mediumhigh {
+  color: var(--tn-orange);
+}
+.chip--new {
+  color: var(--tn-magenta);
+}
+.meter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--fg-soft);
+  white-space: nowrap;
+}
+.meter__track {
+  width: 54px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--meter-track);
+  overflow: hidden;
+  flex: none;
+}
+.meter__fill {
+  display: block;
+  height: 100%;
+  width: var(--v, 0%);
+  border-radius: 999px;
+  background: var(--meter-color, var(--tn-blue));
+}
+.meter[data-band="high"] {
+  --meter-color: var(--tn-green);
+  color: var(--tn-green);
+}
+.meter[data-band="mid"] {
+  --meter-color: var(--tn-blue);
+  color: var(--tn-blue);
+}
+.meter[data-band="low"] {
+  --meter-color: var(--tn-orange);
+  color: var(--tn-orange);
+}
+.meter[data-band="poor"] {
+  --meter-color: var(--tn-red);
+  color: var(--tn-red);
+}
+
+/* ---------- Code blocks ---------- */
+.code {
+  margin: 1.2rem 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--sunken);
+  overflow: hidden;
+  max-width: 100%;
+}
+.code__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.5rem 0.4rem 0.85rem;
+  background: var(--elev);
+  border-bottom: 1px solid var(--border);
+}
+.code__lang {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tn-cyan);
+}
+.code__name {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.code__copy {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--fg-muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.22rem 0.6rem;
+  cursor: pointer;
+  transition: color 0.16s var(--ease), background 0.16s var(--ease),
+    border-color 0.16s var(--ease);
+}
+.code__copy:hover {
+  color: var(--fg);
+  background: var(--hover);
+}
+.code__copy.is-copied {
+  color: var(--tn-bg);
+  background: var(--tn-green);
+  border-color: var(--tn-green);
+}
+.code__pre {
+  margin: 0;
+  padding: 1rem 1.1rem;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--tn-gutter) transparent;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  line-height: 1.6;
+  tab-size: 2;
+  color: var(--fg);
+}
+.code__pre code {
+  font-family: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  white-space: pre;
+}
+.code--ascii .code__pre {
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--tn-cyan);
+}
+
+/* ---------- highlight.js: Tokyo Night token theme ---------- */
+.hljs {
+  color: var(--fg);
+  background: transparent;
+}
+.hljs-comment,
+.hljs-quote {
+  color: var(--syn-comment);
+  font-style: italic;
+}
+.hljs-doctag,
+.hljs-keyword,
+.hljs-formula,
+.hljs-literal {
+  color: var(--syn-keyword);
+}
+.hljs-name,
+.hljs-selector-tag {
+  color: var(--tn-red);
+}
+.hljs-string,
+.hljs-regexp,
+.hljs-addition,
+.hljs-attribute,
+.hljs-meta .hljs-string {
+  color: var(--syn-string);
+}
+.hljs-number,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-type,
+.hljs-selector-class,
+.hljs-selector-attr,
+.hljs-selector-pseudo {
+  color: var(--syn-number);
+}
+.hljs-title,
+.hljs-title.function_,
+.hljs-title.class_,
+.hljs-section .hljs-title,
+.hljs-attr {
+  color: var(--syn-func);
+}
+.hljs-built_in,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-params,
+.hljs-property {
+  color: var(--tn-blue1);
+}
+.hljs-built_in {
+  color: var(--syn-type);
+}
+.hljs-meta,
+.hljs-meta .hljs-keyword {
+  color: var(--syn-meta);
+}
+.hljs-section {
+  color: var(--tn-blue);
+  font-weight: 700;
+}
+.hljs-tag {
+  color: var(--tn-red);
+}
+.hljs-emphasis {
+  font-style: italic;
+}
+.hljs-strong {
+  font-weight: 700;
+}
+.hljs-deletion {
+  color: var(--tn-red1);
+}
+.hljs-link {
+  color: var(--tn-blue5);
+}
+
+/* ---------- Details / accordion ---------- */
+details {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--sunken);
+  margin: 1.1rem 0;
+  max-width: 100%;
+}
+details > summary {
+  cursor: pointer;
+  padding: 0.7rem 0.95rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--fg);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+details > summary::-webkit-details-marker {
+  display: none;
+}
+details > summary::before {
+  content: "\25B8";
+  color: var(--tn-magenta);
+  transition: transform 0.18s var(--ease);
+  display: inline-block;
+}
+details[open] > summary::before {
+  transform: rotate(90deg);
+}
+details > summary:hover {
+  color: var(--tn-cyan);
+}
+details > *:not(summary) {
+  padding: 0 0.95rem;
+}
+details > :last-child {
+  padding-bottom: 0.9rem;
+}
+details .code {
+  margin: 0.6rem 0;
+}
+
+/* ---------- Checklists ---------- */
+.checklist {
+  margin: 1.3rem 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--elev);
+  padding: 1rem 1.1rem;
+  box-shadow: var(--shadow);
+}
+.checklist__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 0.8rem;
+}
+.checklist__progress {
+  flex: 1 1 200px;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.checklist__progress progress {
+  flex: 1 1 auto;
+  height: 8px;
+  border: 0;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--meter-track);
+  accent-color: var(--tn-green);
+  appearance: none;
+  -webkit-appearance: none;
+}
+.checklist__progress progress::-webkit-progress-bar {
+  background: var(--meter-track);
+  border-radius: 999px;
+}
+.checklist__progress progress::-webkit-progress-value {
+  background: var(--tn-green);
+  border-radius: 999px;
+  transition: width 0.25s var(--ease);
+}
+.checklist__progress progress::-moz-progress-bar {
+  background: var(--tn-green);
+  border-radius: 999px;
+}
+.checklist__count {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--fg-soft);
+  white-space: nowrap;
+}
+.checklist__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.3rem;
+}
+.checklist__items li {
+  border-radius: var(--radius-sm);
+  transition: background 0.16s var(--ease);
+}
+.checklist__items li:hover {
+  background: var(--hover);
+}
+.checklist__items label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.45rem 0.6rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  border-radius: var(--radius-sm);
+}
+.checklist__items input[type="checkbox"] {
+  flex: none;
+  width: 1.05rem;
+  height: 1.05rem;
+  margin-top: 0.22rem;
+  accent-color: var(--tn-green);
+  cursor: pointer;
+}
+.checklist__items li.is-done .item-text {
+  color: var(--fg-muted);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+.item-text {
+  min-width: 0;
+}
+.item-tag {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border-radius: 999px;
+  padding: 0.05rem 0.42rem;
+  margin-left: 0.4rem;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+.item-tag--both {
+  color: var(--tn-cyan);
+}
+.item-tag--revision {
+  color: var(--tn-magenta);
+}
+.item-tag--draft {
+  color: var(--tn-yellow);
+}
+.item-tag--optional {
+  color: var(--fg-muted);
+}
+
+/* ---------- Tabs ---------- */
+.tabs {
+  margin: 1.3rem 0;
+}
+.tabs__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding: 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--sunken);
+  width: fit-content;
+  max-width: 100%;
+}
+.tabs__tab {
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--fg-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.34rem 0.85rem;
+  cursor: pointer;
+  transition: color 0.16s var(--ease), background 0.16s var(--ease);
+}
+.tabs__tab:hover {
+  color: var(--fg);
+}
+.tabs__tab[aria-selected="true"] {
+  color: var(--tn-bg);
+  background: var(--tn-blue);
+}
+.tabs__panel {
+  margin-top: 0.9rem;
+}
+.tabs__panel[hidden] {
+  display: none;
+}
+
+/* ---------- Architecture diagram ---------- */
+.arch {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: layer;
+}
+.arch__layer {
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--layer-color, var(--tn-blue));
+  border-radius: var(--radius-sm);
+  background: var(--sunken);
+  padding: 0.7rem 0.85rem;
+  transition: transform 0.16s var(--ease), border-color 0.16s var(--ease);
+}
+.arch__layer:hover {
+  transform: translateX(3px);
+  border-color: var(--layer-color, var(--tn-blue));
+}
+.arch__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0 0 0.35rem;
+  font-size: 0.94rem;
+  font-weight: 700;
+  color: var(--layer-color, var(--tn-blue));
+}
+.arch__role {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+}
+.arch__parts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.arch__parts li {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--fg-soft);
+  background: var(--elev);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.14rem 0.55rem;
+}
+.arch__note {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: var(--fg-muted);
+}
+
+/* ---------- Cost calculator ---------- */
+.calc {
+  margin: 1.3rem 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--elev);
+  padding: 1.1rem 1.2rem;
+  box-shadow: var(--shadow);
+}
+.calc__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+  gap: 1rem 1.4rem;
+  margin: 0.6rem 0 1rem;
+}
+.calc__field {
+  display: grid;
+  gap: 0.35rem;
+}
+.calc__field label,
+.calc legend {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.calc__field output {
+  font-family: var(--font-mono);
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--tn-green);
+}
+.calc input[type="range"] {
+  width: 100%;
+  accent-color: var(--tn-blue);
+}
+.calc fieldset {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.8rem 0.7rem;
+  margin: 0;
+}
+.calc fieldset label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.86rem;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--fg-soft);
+  margin-right: 0.9rem;
+  cursor: pointer;
+}
+.calc__result {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.7rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.9rem;
+}
+.calc__out {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--sunken);
+  padding: 0.6rem 0.8rem;
+}
+.calc__out b {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 1.2rem;
+  color: var(--out-color, var(--tn-blue));
+}
+.calc__out span {
+  font-size: 0.74rem;
+  color: var(--fg-muted);
+}
+.calc__bar {
+  margin-top: 0.9rem;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--meter-track);
+  overflow: hidden;
+  display: flex;
+}
+.calc__bar i {
+  display: block;
+  height: 100%;
+  width: var(--w, 50%);
+  transition: width 0.25s var(--ease);
+}
+.calc__bar i:first-child {
+  background: var(--tn-blue);
+}
+.calc__bar i:last-child {
+  background: var(--tn-orange);
+}
+.calc__legend {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.4rem;
+  font-size: 0.74rem;
+  color: var(--fg-muted);
+}
+.calc__legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin-right: 0.3rem;
+}
+
+/* ---------- Dialog ---------- */
+dialog {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--elev);
+  color: var(--fg);
+  padding: 0;
+  max-width: min(520px, 92vw);
+  box-shadow: var(--shadow);
+}
+dialog::backdrop {
+  background: rgba(6, 8, 16, 0.68);
+  backdrop-filter: blur(3px);
+}
+.dialog__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1.1rem;
+  border-bottom: 1px solid var(--border);
+}
+.dialog__head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.dialog__body {
+  padding: 1rem 1.1rem 1.2rem;
+}
+.shortcuts {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+.shortcuts th,
+.shortcuts td {
+  text-align: left;
+  padding: 0.4rem 0.2rem;
+  border-bottom: 1px solid var(--border);
+}
+.shortcuts th {
+  width: 40%;
+  font-weight: 600;
+  color: var(--fg-muted);
+}
+
+/* ---------- Back to top / footer ---------- */
+.to-top {
+  position: fixed;
+  right: clamp(0.8rem, 2vw, 1.6rem);
+  bottom: clamp(0.8rem, 2vw, 1.6rem);
+  z-index: 55;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  color: var(--tn-bg);
+  background: var(--tn-blue);
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px);
+  transition: opacity 0.2s var(--ease), transform 0.2s var(--ease),
+    visibility 0.2s;
+}
+.to-top.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+}
+.to-top svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.footer {
+  border-top: 1px solid var(--border);
+  background: var(--elev);
+  color: var(--fg-muted);
+  font-size: 0.82rem;
+  padding: 1.4rem var(--pad) 2.4rem;
+}
+.footer__inner {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem 2rem;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.footer p {
+  margin: 0;
+  max-width: 70ch;
+}
+.footer a {
+  color: var(--fg-soft);
+}
+
+/* ---------- Filtering state ---------- */
+.doc-section.is-filtered-out {
+  display: none;
+}
+.filter-banner {
+  display: none;
+  margin: 0 0 1.4rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 0.84rem;
+  color: var(--fg-soft);
+  background: var(--sunken);
+}
+.filter-banner.is-visible {
+  display: block;
+}
+.visually-hidden-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ---------- Responsive: off-canvas TOC ---------- */
+.scrim {
+  display: none;
+}
+@media (max-width: 1119.98px) {
+  .sidebar {
+    position: fixed;
+    inset: var(--topbar-h) 0 0 auto;
+    width: min(360px, 90vw);
+    z-index: 58;
+    padding: 1rem var(--pad) 2rem;
+    background: var(--elev);
+    border-left: 1px solid var(--border);
+    overflow: auto;
+    transform: translateX(101%);
+    visibility: hidden;
+    transition: transform 0.24s var(--ease), visibility 0.24s;
+    box-shadow: var(--shadow);
+  }
+  .sidebar.is-open {
+    transform: none;
+    visibility: visible;
+  }
+  .sidebar__inner {
+    max-height: none;
+  }
+  .toc__part > a {
+    font-size: 0.74rem;
+  }
+  .toc a {
+    padding-top: 0.45rem;
+    padding-bottom: 0.45rem;
+  }
+  .scrim {
+    position: fixed;
+    inset: var(--topbar-h) 0 0 0;
+    z-index: 57;
+    background: rgba(6, 8, 16, 0.55);
+    border: 0;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s var(--ease), visibility 0.2s;
+  }
+  .scrim.is-visible {
+    display: block;
+    opacity: 1;
+    visibility: visible;
+  }
+  .topbar__brand small {
+    display: none;
+  }
+}
+@media (max-width: 720px) {
+  .data-table {
+    min-width: 480px;
+  }
+  .hero__actions .cta {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+  .themes button span {
+    display: none;
+  }
+  .code__pre {
+    font-size: 0.76rem;
+  }
+  .footer__inner {
+    flex-direction: column;
+  }
+}
+
+/* ---------- Motion preferences ---------- */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ---------- Print ---------- */
+@media print {
+  :root {
+    --bg: #fff;
+    --elev: #fff;
+    --sunken: #f4f4f7;
+    --fg: #14161f;
+    --fg-soft: #2b2f3d;
+    --fg-muted: #565b6b;
+    --border: #c9ccd6;
+    --border-strong: #9aa0af;
+    --shadow: none;
+  }
+  body {
+    background: #fff;
+    color: #14161f;
+    font-size: 10.5pt;
+  }
+  .progress,
+  .topbar,
+  .sidebar,
+  .scrim,
+  .to-top,
+  .code__copy,
+  .tabs__list,
+  .checklist__head button,
+  .calc input,
+  .filter-banner,
+  dialog {
+    display: none !important;
+  }
+  .shell {
+    display: block;
+    padding: 0;
+    max-width: none;
+  }
+  .tabs__panel {
+    display: block !important;
+    margin-top: 0.6rem;
+  }
+  .doc-section,
+  .part,
+  table,
+  pre,
+  .callout,
+  figure {
+    break-inside: avoid;
+  }
+  .doc-section > h2,
+  .sub > h3 {
+    break-after: avoid;
+  }
+  a {
+    color: #14161f;
+    text-decoration: none;
+  }
+  .code__pre {
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .print-note {
+    display: block !important;
+  }
+}
+.print-note {
+  display: none;
+}
+
+/* ---------- NOSCRIPT fallback ---------- */
+.no-js-only {
+  display: none;
+}
+html.no-js .no-js-only {
+  display: block;
+}
+html.no-js .js-only {
+  display: none;
+}
+
+/* ---------- Range inputs (state passed via custom properties) ---------- */
+.calc input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  height: 22px;
+  padding: 0;
+  cursor: pointer;
+}
+.calc input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--tn-blue) 0 var(--fill, 0%),
+    var(--meter-track) var(--fill, 0%) 100%
+  );
+}
+.calc input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: var(--tn-cyan);
+  border: 2px solid var(--sunken);
+  box-shadow: 0 0 0 2px var(--tn-blue);
+}
+.calc input[type="range"]::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--meter-track);
+}
+.calc input[type="range"]::-moz-range-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--tn-blue);
+}
+.calc input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--sunken);
+  border-radius: 50%;
+  background: var(--tn-cyan);
+}
+.calc__out[data-cheaper="no"] {
+  background: rgba(247, 118, 142, 0.1);
+}
+.toc__link.is-active {
+  font-weight: 700;
+}
+.filter-banner strong {
+  color: var(--fg);
+}
+.code__copy svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+.no-js-banner {
+  margin: 0 0 1.2rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--sunken);
+  font-size: 0.88rem;
+}
+
+/* ---------- Row-header cells, audit cards, misc ---------- */
+.data-table tbody th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--fg);
+  padding: 0.6rem 0.85rem;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+}
+.data-table tbody tr:last-child th {
+  border-bottom: 0;
+}
+.data-table .cell-note {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--fg-muted);
+}
+
+.corrections {
+  list-style: none;
+  margin: 1.2rem 0;
+  padding: 0;
+  display: grid;
+  gap: 0.8rem;
+  counter-reset: fix;
+}
+.corrections li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.85rem;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--tn-orange);
+  border-radius: var(--radius-sm);
+  background: var(--sunken);
+  padding: 0.85rem 1rem;
+}
+.corrections li::before {
+  counter-increment: fix;
+  content: counter(fix, decimal-leading-zero);
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--tn-orange);
+  line-height: 1.2;
+}
+.corrections p {
+  margin: 0;
+  max-width: none;
+}
+.corrections code {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  color: var(--tn-green1);
+}
+
+.code--plain .code__lang {
+  color: var(--fg-muted);
+}
+
+.hero__note {
+  margin-top: 1.2rem;
+  background: transparent;
+  border-style: dashed;
+  max-width: 78ch;
+}
+.hero__note > summary {
+  font-size: 0.84rem;
+  color: var(--fg-soft);
+}
+.hero__note p {
+  margin: 0.5rem 0;
+  font-size: 0.88rem;
+  color: var(--fg-soft);
+  max-width: none;
+}
+.hero__note .cite {
+  display: inline-block;
+}
+
+@media (max-width: 1024px) {
+  .icon-btn--wide {
+    display: none;
+  }
+}
+@media (max-width: 620px) {
+  .topbar__tools .themes button[data-theme-set="storm"],
+  .topbar__tools .themes button[data-theme-set="moon"],
+  .topbar__tools #cites-toggle,
+  .topbar__tools [data-print] {
+    display: none;
+  }
+}
+.legend-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.2rem;
+  align-items: center;
+  margin: 0.6rem 0 0;
+  font-size: 0.8rem;
+  color: var(--fg-muted);
+}
+.legend-row .cite {
+  font-size: 0.7rem;
+}
+
+@media (max-width: 420px) {
+  .topbar__name {
+    font-size: 0.82rem;
+  }
+  .topbar__tools .icon-btn {
+    padding: 0.3rem 0.5rem;
+    font-size: 0.74rem;
+  }
+}
+
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.2/highlight.min.js" integrity="sha512-VSPLUv/n1Bmn+4zoxBNwpuFAO3//79I0Aax/qHDx24R47vylPcc9PrHDCqlePwHnh3joiM7/YTQhcXyQAAxvPQ==" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to the guide</a>
+<div class="progress" aria-hidden="true"><span class="progress__bar" id="progress-bar"></span></div>
+<header class="topbar">
+  <a class="topbar__brand" href="#top">
+    <span class="topbar__dot" aria-hidden="true"></span>
+    <span class="topbar__name">OpenCode Go &amp; Claude<small>Tokyo Night edition</small></span>
+  </a>
+  <span class="topbar__spacer"></span>
+  <div class="topbar__tools">
+    <div class="themes" role="group" aria-label="Tokyo Night variant">
+      <button type="button" data-theme-set="night" aria-pressed="true" title="Tokyo Night">Night</button>
+      <button type="button" data-theme-set="storm" aria-pressed="false" title="Tokyo Night Storm">Storm</button>
+      <button type="button" data-theme-set="moon" aria-pressed="false" title="Tokyo Night Moon">Moon</button>
+      <button type="button" data-theme-set="day" aria-pressed="false" title="Tokyo Night Day">Day</button>
+    </div>
+    <button type="button" class="icon-btn" id="cites-toggle" aria-pressed="true" title="Show or hide the research source markers">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5h16M4 12h10M4 19h7"></path></svg>
+      <span class="icon-btn__text">Markers</span>
+    </button>
+    <button type="button" class="icon-btn icon-btn--wide" data-expand-all>Expand all</button>
+    <button type="button" class="icon-btn icon-btn--wide" data-collapse-all>Collapse all</button>
+    <button type="button" class="icon-btn" data-print title="Print or save as PDF">Print</button>
+    <button type="button" class="icon-btn" data-help-open aria-haspopup="dialog" title="Keyboard shortcuts">Shortcuts</button>
+    <button type="button" class="icon-btn" id="toc-toggle" aria-expanded="false" aria-controls="sidebar" title="Show the contents">Contents</button>
+  </div>
+</header>
+<div class="shell">
+  <aside class="sidebar" id="sidebar" aria-labelledby="toc-heading">
+    <div class="sidebar__inner">
+      <h2 class="sidebar__title" id="toc-heading">Contents</h2>
+      <div class="toc-search">
+        <svg class="toc-search__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <label class="sr-only" for="toc-filter">Filter sections</label>
+        <input id="toc-filter" type="search" placeholder="Filter sections&hellip;  ( / )" autocomplete="off" spellcheck="false">
+        <button type="button" class="toc-search__clear" id="toc-clear" aria-label="Clear the section filter">&times;</button>
+      </div>
+      <p class="toc-status" id="toc-status" role="status" aria-live="polite"></p>
+      <nav class="toc" id="toc" aria-label="Guide sections">
+        <ol><li class="toc__part"><a class="toc__link" href="#part-i-initial-draft" data-target="part-i-initial-draft">Part I — Initial draft</a><ol><li class="toc__item" data-search="overview parity gap litellm pydantic runtime" data-section="the-core-reality-what-you-re-actually-building"><a class="toc__link" href="#the-core-reality-what-you-re-actually-building" data-target="the-core-reality-what-you-re-actually-building">The Core Reality: What You're Actually Building</a></li><li class="toc__item" data-section="claude-feature-opencode-stack-mapping"><a class="toc__link" href="#claude-feature-opencode-stack-mapping" data-target="claude-feature-opencode-stack-mapping">Claude Feature → OpenCode Stack Mapping</a></li><li class="toc__item" data-search="install curl connect tui web ui server password" data-section="phase-1-base-setup"><a class="toc__link" href="#phase-1-base-setup" data-target="phase-1-base-setup">Phase 1: Base Setup</a><ol><li class="toc__sub"><a class="toc__link" href="#installing-opencode-and-connecting-go" data-target="installing-opencode-and-connecting-go">Installing OpenCode and Connecting Go</a></li></ol></li><li class="toc__item" data-search="agents.md skills memory opencode-mem supermemory projects" data-section="phase-2-mimicking-claude-projects"><a class="toc__link" href="#phase-2-mimicking-claude-projects" data-target="phase-2-mimicking-claude-projects">Phase 2: Mimicking Claude Projects</a><ol><li class="toc__sub"><a class="toc__link" href="#agents-md-global-instructions" data-target="agents-md-global-instructions">AGENTS.md (Global Instructions)</a></li><li class="toc__sub"><a class="toc__link" href="#skills-reusable-behaviors" data-target="skills-reusable-behaviors">Skills (Reusable Behaviors)</a></li><li class="toc__sub"><a class="toc__link" href="#memory-plugins" data-target="memory-plugins">Memory Plugins</a></li></ol></li><li class="toc__item" data-search="tavily brave firecrawl context7 mcp oauth search" data-section="phase-3-web-search-claude-s-search-feature"><a class="toc__link" href="#phase-3-web-search-claude-s-search-feature" data-target="phase-3-web-search-claude-s-search-feature">Phase 3: Web Search (Claude's Search Feature)</a><ol><li class="toc__sub"><a class="toc__link" href="#tavily-mcp-server-recommended" data-target="tavily-mcp-server-recommended">Tavily MCP Server (Recommended)</a></li><li class="toc__sub"><a class="toc__link" href="#brave-search-api-alternative" data-target="brave-search-api-alternative">Brave Search API Alternative</a></li><li class="toc__sub"><a class="toc__link" href="#configuration" data-target="configuration">Configuration</a></li></ol></li><li class="toc__item" data-search="pydantic ai schema validation insight" data-section="phase-4-structured-outputs-with-pydantic"><a class="toc__link" href="#phase-4-structured-outputs-with-pydantic" data-target="phase-4-structured-outputs-with-pydantic">Phase 4: Structured Outputs with Pydantic</a><ol><li class="toc__sub"><a class="toc__link" href="#setting-up-pydantic-ai-with-go-models" data-target="setting-up-pydantic-ai-with-go-models">Setting Up Pydantic AI with Go Models</a></li></ol></li><li class="toc__item" data-search="litellm proxy fallbacks routing master key security cve" data-section="phase-5-litellm-as-unified-model-router"><a class="toc__link" href="#phase-5-litellm-as-unified-model-router" data-target="phase-5-litellm-as-unified-model-router">Phase 5: LiteLLM as Unified Model Router</a><ol><li class="toc__sub"><a class="toc__link" href="#installation-and-setup" data-target="installation-and-setup">Installation and Setup</a></li><li class="toc__sub"><a class="toc__link" href="#configuration-2" data-target="configuration-2">Configuration</a></li><li class="toc__sub"><a class="toc__link" href="#connecting-opencode-to-litellm" data-target="connecting-opencode-to-litellm">Connecting OpenCode to LiteLLM</a></li></ol></li><li class="toc__item" data-search="custom tools doc analysis chart.js visualization typescript plugin" data-section="phase-6-custom-tools-for-non-coding-work"><a class="toc__link" href="#phase-6-custom-tools-for-non-coding-work" data-target="phase-6-custom-tools-for-non-coding-work">Phase 6: Custom Tools for Non-Coding Work</a><ol><li class="toc__sub"><a class="toc__link" href="#document-analysis-tool" data-target="document-analysis-tool">Document Analysis Tool</a></li><li class="toc__sub"><a class="toc__link" href="#data-visualization-tool" data-target="data-visualization-tool">Data Visualization Tool</a></li></ol></li><li class="toc__item" data-search="artifacts share links preview html react" data-section="phase-7-mimicking-artifacts"><a class="toc__link" href="#phase-7-mimicking-artifacts" data-target="phase-7-mimicking-artifacts">Phase 7: Mimicking Artifacts</a></li><li class="toc__item" data-search="market research agent skill fetch_data tavily" data-section="phase-8-research-and-analysis-workflows"><a class="toc__link" href="#phase-8-research-and-analysis-workflows" data-target="phase-8-research-and-analysis-workflows">Phase 8: Research and Analysis Workflows</a><ol><li class="toc__sub"><a class="toc__link" href="#market-research-agent-setup" data-target="market-research-agent-setup">Market Research Agent Setup</a></li></ol></li><li class="toc__item" data-search="multimodal context window personality reliability cost" data-section="known-limitations-and-gaps"><a class="toc__link" href="#known-limitations-and-gaps" data-target="known-limitations-and-gaps">Known Limitations and Gaps</a></li><li class="toc__item" data-search="morning setup litellm port 4096 daily patterns" data-section="recommended-workflow-example"><a class="toc__link" href="#recommended-workflow-example" data-target="recommended-workflow-example">Recommended Workflow Example</a></li><li class="toc__item" data-search="todo checklist setup order first run" data-section="quick-start-checklist"><a class="toc__link" href="#quick-start-checklist" data-target="quick-start-checklist">Quick-Start Checklist</a></li></ol></li><li class="toc__part"><a class="toc__link" href="#interlude-the-audit" data-target="interlude-the-audit">Interlude — The audit</a><ol><li class="toc__item" data-search="corrections mistake zen open webui docs slides" data-section="audit-summary-what-i-got-wrong-and-what-i-missed"><a class="toc__link" href="#audit-summary-what-i-got-wrong-and-what-i-missed" data-target="audit-summary-what-i-got-wrong-and-what-i-missed">Audit Summary: What I Got Wrong and What I Missed</a></li></ol></li><li class="toc__part"><a class="toc__link" href="#part-ii-revised-corrected" data-target="part-ii-revised-corrected">Part II — Revised &amp; corrected</a><ol><li class="toc__item" data-section="revised-complete-guide-opencode-go-open-source-stack-to-replicate-claude"><a class="toc__link" href="#revised-complete-guide-opencode-go-open-source-stack-to-replicate-claude" data-target="revised-complete-guide-opencode-go-open-source-stack-to-replicate-claude">Revised Complete Guide: OpenCode Go + Open-Source Stack to Replicate Claude</a><ol><li class="toc__sub"><a class="toc__link" href="#the-honest-assessment" data-target="the-honest-assessment">The Honest Assessment</a></li><li class="toc__sub"><a class="toc__link" href="#feature-mapping-table-corrected" data-target="feature-mapping-table-corrected">Feature Mapping Table (Corrected)</a></li><li class="toc__sub" data-search="install opencode.ai/go opencode zen api key base url models"><a class="toc__link" href="#phase-1-corrected-base-setup" data-target="phase-1-corrected-base-setup">Phase 1: Corrected Base Setup</a></li><li class="toc__sub" data-search="agents.md skills stop-slop handoff grill me obra superpowers"><a class="toc__link" href="#phase-2-claude-projects-equivalent-knowledge-base" data-target="phase-2-claude-projects-equivalent-knowledge-base">Phase 2: Claude Projects Equivalent (Knowledge Base)</a><ol><li class="toc__subsub"><a class="toc__link" href="#agents-md-instructions" data-target="agents-md-instructions">AGENTS.md (Instructions)</a></li><li class="toc__subsub"><a class="toc__link" href="#skills-system-reusable-behaviors" data-target="skills-system-reusable-behaviors">Skills System (Reusable Behaviors)</a></li><li class="toc__subsub"><a class="toc__link" href="#recommended-skills-to-install" data-target="recommended-skills-to-install">Recommended Skills to Install</a></li></ol></li><li class="toc__sub" data-search="tavily brave firecrawl context7 mcp oauth search"><a class="toc__link" href="#phase-3-web-search-claude-s-search-feature-2" data-target="phase-3-web-search-claude-s-search-feature-2">Phase 3: Web Search (Claude's Search Feature)</a><ol><li class="toc__subsub"><a class="toc__link" href="#option-a-firecrawl-skill-recommended" data-target="option-a-firecrawl-skill-recommended">Option A: Firecrawl Skill (Recommended)</a></li><li class="toc__subsub"><a class="toc__link" href="#option-b-tavily-mcp-server" data-target="option-b-tavily-mcp-server">Option B: Tavily MCP Server</a></li><li class="toc__subsub"><a class="toc__link" href="#option-c-brave-search-api" data-target="option-c-brave-search-api">Option C: Brave Search API</a></li><li class="toc__subsub"><a class="toc__link" href="#mcp-configuration-corrected-syntax" data-target="mcp-configuration-corrected-syntax">MCP Configuration (Corrected Syntax)</a></li></ol></li><li class="toc__sub" data-search="pydantic ai research finding report schema"><a class="toc__link" href="#phase-4-pydantic-ai-for-structured-outputs" data-target="phase-4-pydantic-ai-for-structured-outputs">Phase 4: Pydantic AI for Structured Outputs</a></li><li class="toc__sub" data-search="litellm yaml fallbacks least-busy pin version"><a class="toc__link" href="#phase-5-litellm-for-model-routing" data-target="phase-5-litellm-for-model-routing">Phase 5: LiteLLM for Model Routing</a></li><li class="toc__sub" data-search="open webui docker anthropic frontend knowledge base"><a class="toc__link" href="#phase-6-alternative-approach-open-webui-integration" data-target="phase-6-alternative-approach-open-webui-integration">Phase 6: Alternative Approach — Open WebUI Integration</a></li><li class="toc__sub" data-search="create_artifact tool write file html dashboard"><a class="toc__link" href="#phase-7-custom-tools-for-non-coding-work" data-target="phase-7-custom-tools-for-non-coding-work">Phase 7: Custom Tools for Non-Coding Work</a><ol><li class="toc__subsub"><a class="toc__link" href="#document-analysis-tool-2" data-target="document-analysis-tool-2">Document Analysis Tool</a></li><li class="toc__subsub"><a class="toc__link" href="#visualization-tool-artifacts-like" data-target="visualization-tool-artifacts-like">Visualization Tool (Artifacts-like)</a></li></ol></li><li class="toc__sub" data-search="research workspace tree skills tools"><a class="toc__link" href="#phase-8-research-workflow-example" data-target="phase-8-research-workflow-example">Phase 8: Research Workflow Example</a></li><li class="toc__sub" data-search="vision artifacts docs slides mobile reliability"><a class="toc__link" href="#known-limitations-updated-and-honest" data-target="known-limitations-updated-and-honest">Known Limitations (Updated and Honest)</a></li><li class="toc__sub" data-search="budget dollars per month claude pro max calculator"><a class="toc__link" href="#cost-comparison-realistic" data-target="cost-comparison-realistic">Cost Comparison (Realistic)</a></li><li class="toc__sub" data-search="stack diagram litellm opencode pydantic external services"><a class="toc__link" href="#recommended-architecture" data-target="recommended-architecture">Recommended Architecture</a></li></ol></li></ol></li></ol>
+      </nav>
+      <p class="toc-empty" id="toc-empty">No section matches that filter.</p>
+      <div class="sidebar__toggle-row">
+        <button type="button" class="ghost-btn" data-expand-all>Expand all</button>
+        <button type="button" class="ghost-btn" data-collapse-all>Collapse all</button>
+        <button type="button" class="ghost-btn" data-print>Print</button>
+      </div>
+    </div>
+  </aside>
+  <button type="button" class="scrim" id="scrim" aria-label="Close the contents panel" tabindex="-1"></button>
+  <main class="content" id="main">
+<section class="hero" id="top" aria-labelledby="hero-title"><p class="hero__eyebrow">Field notes &middot; agent runtime &middot; open models</p><h1 class="hero__title" id="hero-title">Replicating <em>Claude</em> with OpenCode Go and an open-source stack</h1><p class="hero__lede">This page folds both drafts in <code>tmp.md</code> into one readable document: the plan for standing up a Claude-shaped assistant on OpenCode Go's $10/month models, the audit that fact-checked it, and the corrected guide that came out of it. The figures, code and caveats are the notes' own. </p><ul class="stats"><li class="stat" style="--stat-color: var(--tn-green)"><span class="stat__value">70–80%</span><span class="stat__label">Workflow parity with the Claude web app</span></li><li class="stat" style="--stat-color: var(--tn-blue)"><span class="stat__value">$10</span><span class="stat__label">OpenCode Go subscription, flat per month</span></li><li class="stat" style="--stat-color: var(--tn-yellow)"><span class="stat__value">$10–80</span><span class="stat__label">Assembled stack, against $20–200 for Claude</span></li><li class="stat" style="--stat-color: var(--tn-orange)"><span class="stat__value">2–4 h</span><span class="stat__label">Initial setup, plus ongoing upkeep</span></li><li class="stat" style="--stat-color: var(--tn-magenta)"><span class="stat__value">21 min</span><span class="stat__label">Reading time for the whole page</span></li></ul><div class="hero__actions"><a class="cta cta--primary" href="#the-core-reality-what-you-re-actually-building">Start with Part I</a><button type="button" class="cta cta--ghost" data-help-open aria-haspopup="dialog">Keyboard shortcuts</button><button type="button" class="cta cta--ghost" data-print>Print or save as PDF</button></div><ul class="gap-chips" aria-label="Where the stack still falls short"><li>image understanding stays limited</li><li>no Artifacts preview environment</li><li>no native Docs &amp; Slides tools</li><li>response personality is not Claude's</li><li>more moving parts to keep alive</li><li>mobile is browser-only</li></ul><details class="hero__note"><summary>How to read this page: two drafts, one audit, and the &#9670; markers</summary><p><strong>Part I</strong> is the initial plan, kept as written. <strong>The audit</strong> lists the four things fact-checking changed. <strong>Part II</strong> is the corrected guide, which repeats several phases with better information — both versions are here so you can see exactly what moved.</p><p>The small <sup class="cite">&#9670;</sup> markers are provenance tags carried over from the research notes; hovering one shows which research turn it came from. Switch them off with <strong>Markers</strong> in the header for a clean read.</p><p class="print-note">Printed copy: interactive controls are hidden and collapsed sections are expanded automatically.</p></details></section><p class="no-js-banner no-js-only">JavaScript is disabled in this browser, so filtering, theme switching, copy buttons and progress tracking are off. Everything else is fully readable.</p><div class="filter-banner" id="filter-banner">
+  <strong id="filter-banner-text"></strong>
+  <button type="button" class="ghost-btn" id="filter-clear">Clear the filter</button>
+</div>
+<section class="part" id="part-i-initial-draft" style="--part-color: var(--tn-blue)">
+<header class="part__header"><p class="part__kicker">Part I</p><h2 class="part__title">Initial draft</h2><p class="part__note">The first pass: the plan, phase by phase, exactly as it was written down.</p></header>
+<section class="doc-section" id="the-core-reality-what-you-re-actually-building" data-search="overview parity gap litellm pydantic runtime">
+<h2>The Core Reality: What You're Actually Building</h2>
+<p class="lede">You can replicate roughly 70–80% of a Claude web-app workflow by combining OpenCode Go's $10/month model access with an orchestration stack of LiteLLM, MCP servers, and Pydantic—but you'll be assembling infrastructure that Anthropic ships as a polished product. The gap closes fastest for coding and agentic tasks; it stays widest for multimodal features (native image generation, polished Artifacts UI, visual file uploads) and zero-config UX<sup class="cite" title="Source note: turn0search10" aria-label="research source note">◆</sup><sup class="cite" title="Source note: turn5fetch0" aria-label="research source note">◆</sup>.</p>
+<p>The key insight is that OpenCode is not just a coding tool—it's a general-purpose <strong>agent runtime</strong> with a plugin system, MCP support, custom tools, and web UI. You're using the coding subscription as cheap compute for a broader agent platform<sup class="cite" title="Source note: turn8fetch0" aria-label="research source note">◆</sup><sup class="cite" title="Source note: turn10fetch0" aria-label="research source note">◆</sup>.</p>
+<hr>
+</section>
+<section class="doc-section" id="claude-feature-opencode-stack-mapping" data-search="">
+<h2>Claude Feature → OpenCode Stack Mapping</h2>
+<div class="table-wrap" role="region" tabindex="0" aria-label="Draft mapping of Claude web-app features to OpenCode Go and open-source equivalents"><table class="data-table"><caption class="sr-only">Draft mapping of Claude web-app features to OpenCode Go and open-source equivalents</caption><thead><tr><th scope="col"><button type="button" class="th-sort" title="Sort by this column">Claude Web App Feature</button></th><th scope="col"><button type="button" class="th-sort" title="Sort by this column">OpenCode Go + Open-Source Equivalent</button></th><th scope="col"><button type="button" class="th-sort" title="Sort by this column">Setup Effort</button></th><th scope="col"><button type="button" class="th-sort" title="Sort by this column">Fidelity</button></th></tr></thead><tbody><tr><th scope="row"><strong>Chat (Sonnet/Opus)</strong></th><td>OpenCode TUI/Web UI + Go models (GLM-5.3, Kimi K3, DeepSeek V4)</td><td><span class="chip chip--low">Low</span></td><td><span class="meter" data-band="high" role="img" aria-label="Fidelity 88 percent"><span class="meter__track"><span class="meter__fill" style="--v:88%"></span></span><span class="meter__val">High</span></span></td></tr><tr><th scope="row"><strong>Projects (knowledge base)</strong></th><td><code>AGENTS.md</code> rules + <code>.opencode/skills/</code> + memory plugins</td><td><span class="chip chip--medium">Medium</span></td><td><span class="meter" data-band="high" role="img" aria-label="Fidelity 80 percent"><span class="meter__track"><span class="meter__fill" style="--v:80%"></span></span><span class="meter__val">~80%</span></span></td></tr><tr><th scope="row"><strong>Artifacts (apps/docs)</strong></th><td>OpenCode Web UI + custom tools + share links</td><td><span class="chip chip--medium">Medium</span></td><td><span class="meter" data-band="low" role="img" aria-label="Fidelity 60 percent"><span class="meter__track"><span class="meter__fill" style="--v:60%"></span></span><span class="meter__val">~60%</span></span></td></tr><tr><th scope="row"><strong>Web search</strong></th><td>MCP servers (Brave Search API, Tavily, Exa)</td><td><span class="chip chip--low">Low</span></td><td><span class="meter" data-band="high" role="img" aria-label="Fidelity 88 percent"><span class="meter__track"><span class="meter__fill" style="--v:88%"></span></span><span class="meter__val">High</span></span></td></tr><tr><th scope="row"><strong>File analysis (PDF/docs)</strong></th><td>MCP document servers + custom Python tools</td><td><span class="chip chip--medium">Medium</span></td><td><span class="meter" data-band="mid" role="img" aria-label="Fidelity 75 percent"><span class="meter__track"><span class="meter__fill" style="--v:75%"></span></span><span class="meter__val">~75%</span></span></td></tr><tr><th scope="row"><strong>Code generation</strong></th><td>OpenCode core (native strength)</td><td><span class="chip chip--none">None</span></td><td><span class="meter" data-band="high" role="img" aria-label="Fidelity 88 percent"><span class="meter__track"><span class="meter__fill" style="--v:88%"></span></span><span class="meter__val">High</span></span></td></tr><tr><th scope="row"><strong>Extended thinking</strong></th><td>Kimi K3 / GLM-5.3 with reasoning</td><td><span class="chip chip--none">None</span></td><td><span class="meter" data-band="low" role="img" aria-label="Fidelity 68 percent"><span class="meter__track"><span class="meter__fill" style="--v:68%"></span></span><span class="meter__val">Medium</span></span></td></tr><tr><th scope="row"><strong>Memory across sessions</strong></th><td><code>opencode-mem</code> / <code>supermemory</code> plugins</td><td><span class="chip chip--medium">Low-Medium</span></td><td><span class="meter" data-band="low" role="img" aria-label="Fidelity 70 percent"><span class="meter__track"><span class="meter__fill" style="--v:70%"></span></span><span class="meter__val">~70%</span></span></td></tr><tr><th scope="row"><strong>Model routing</strong></th><td>LiteLLM proxy + OpenCode Go API key</td><td><span class="chip chip--medium">Medium</span></td><td><span class="meter" data-band="high" role="img" aria-label="Fidelity 88 percent"><span class="meter__track"><span class="meter__fill" style="--v:88%"></span></span><span class="meter__val">High</span></span></td></tr><tr><th scope="row"><strong>Structured outputs</strong></th><td>Pydantic AI + custom tools</td><td><span class="chip chip--medium">Medium</span></td><td><span class="meter" data-band="high" role="img" aria-label="Fidelity 88 percent"><span class="meter__track"><span class="meter__fill" style="--v:88%"></span></span><span class="meter__val">High</span></span></td></tr><tr><th scope="row"><strong>Visual/image input</strong></th><td>DeepSeek V4 Flash Vision Exp (limited)</td><td><span class="chip chip--low">Low</span></td><td><span class="meter" data-band="poor" role="img" aria-label="Fidelity 42 percent"><span class="meter__track"><span class="meter__fill" style="--v:42%"></span></span><span class="meter__val">Low</span></span></td></tr></tbody></table></div>
+<hr>
+</section>
+<section class="doc-section" id="phase-1-base-setup" data-search="install curl connect tui web ui server password">
+<h2><span class="h-num">Phase 1</span> <span>Base Setup</span></h2>
+<section class="sub" id="installing-opencode-and-connecting-go" data-search="">
+<h3>Installing OpenCode and Connecting Go</h3>
+<figure class="code" data-lang="bash"><figcaption class="code__bar"><span class="code__lang">bash</span><span class="code__name"></span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-bash"># Install OpenCode
+curl -fsSL https://opencode.ai/install | bash
+
+# Start the TUI in your workspace
+cd ~/my-workspace
+opencode</code></pre></figure>
+<p>Inside the TUI, connect your Go subscription:</p>
+<ol class="steps"><li>Sign up at <strong>OpenCode Zen</strong> (<a href="https://zen.opencode.ai" rel="noopener noreferrer">zen.opencode.ai</a>) and subscribe to Go ($10/month)<sup class="cite" title="Source note: turn3fetch0" aria-label="research source note">◆</sup></li><li>Copy your API key</li><li>In OpenCode TUI, run <code>/connect</code>, select <code>OpenCode Go</code>, paste your key</li><li>Run <code>/models</code> to see the 18+ available models<sup class="cite" title="Source note: turn3fetch0" aria-label="research source note">◆</sup></li></ol>
+<p>The current Go model lineup includes GLM-5.3, Kimi K3, GPT 5.6 Luna, DeepSeek V4 Pro, Qwen3.8 Max, and others, with monthly limits ranging from $15–$60 in token-equivalent usage per model<sup class="cite" title="Source note: turn3fetch0" aria-label="research source note">◆</sup>.</p>
+<p><strong>For the web experience</strong> (closest to Claude's UI):</p>
+<figure class="code" data-lang="bash"><figcaption class="code__bar"><span class="code__lang">bash</span><span class="code__name"></span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-bash"># Start OpenCode's web interface
+opencode web
+
+# With network access and password protection
+OPENCODE_SERVER_PASSWORD=yourpassword opencode web --hostname 0.0.0.0 --port 4096</code></pre></figure>
+<p>This gives you a browser-based session manager where you can create, view, and manage multiple conversations—functionally similar to Claude's chat interface<sup class="cite" title="Source note: turn8fetch2" aria-label="research source note">◆</sup>.</p>
+<hr>
+</section>
+</section>
+<section class="doc-section" id="phase-2-mimicking-claude-projects" data-search="agents.md skills memory opencode-mem supermemory projects">
+<h2><span class="h-num">Phase 2</span> <span>Mimicking Claude Projects</span></h2>
+<p class="lede">Claude Projects let you pin documents and instructions that persist across chats. OpenCode replicates this via three mechanisms:</p>
+<section class="sub" id="agents-md-global-instructions" data-search="">
+<h3>AGENTS.md (Global Instructions)</h3>
+<p>Create <code>~/.config/opencode/AGENTS.md</code> for personal rules that apply everywhere:</p>
+<figure class="code" data-lang="markdown"><figcaption class="code__bar"><span class="code__lang">markdown</span><span class="code__name">AGENTS.md</span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-markdown"># My Assistant Rules
+
+## Communication Style
+
+- Be concise but thorough
+- Cite sources when making factual claims
+- Ask clarifying questions for ambiguous requests
+
+## My Preferences
+
+- I prefer detailed explanations for complex topics
+- Always show your reasoning step by step
+- When analyzing documents, extract key entities and relationships first
+
+## My Work Context
+
+- I work in [your field]
+- Common document types: reports, research papers, emails
+- My typical use cases: analysis, writing, planning, coding</code></pre></figure>
+<p>Run <code>/init</code> inside a project directory and OpenCode scans your repo to auto-generate relevant context<sup class="cite" title="Source note: turn8fetch1" aria-label="research source note">◆</sup>.</p>
+</section>
+<section class="sub" id="skills-reusable-behaviors" data-search="">
+<h3>Skills (Reusable Behaviors)</h3>
+<p>Create <code>.opencode/skills/&lt;name&gt;/SKILL.md</code> files for domain-specific capabilities:</p>
+<figure class="code" data-lang="markdown"><figcaption class="code__bar"><span class="code__lang">markdown</span><span class="code__name">document-analysis/SKILL.md</span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-markdown">---
+name: document-analysis
+description: Analyze PDFs and documents, extract key insights
+---
+
+## What I do
+
+- Read document content using available tools
+- Extract entities, relationships, and key claims
+- Summarize with structured sections
+- Identify action items and follow-ups
+
+## When to use me
+
+Use this skill when the user asks to analyze a document, PDF, report,
+or any file requiring comprehension beyond code.</code></pre></figure>
+<p>OpenCode discovers skills from multiple locations including <code>.claude/skills/</code> (Claude Code compatibility)<sup class="cite" title="Source note: turn8fetch0" aria-label="research source note">◆</sup>.</p>
+</section>
+<section class="sub" id="memory-plugins" data-search="">
+<h3>Memory Plugins</h3>
+<p>Install persistent memory via community plugins:</p>
+<figure class="code" data-lang="bash"><figcaption class="code__bar"><span class="code__lang">bash</span><span class="code__name"></span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-bash"># Option 1: opencode-mem (local vector database)
+git clone https://github.com/tickernelz/opencode-mem
+cd opencode-mem &amp;&amp; bun install
+
+# Option 2: supermemory (external service)
+bunx opencode-supermemory@latest install
+bunx opencode-supermemory@latest login</code></pre></figure>
+<p>The <code>opencode-mem</code> plugin uses embedded Turso/libSQL with vector search, persistent project memories, automatic user profile learning, and 12+ local embedding models<sup class="cite" title="Source note: turn4search9" aria-label="research source note">◆</sup>. Supermemory adds a <code>/supermemory-index</code> command for cross-session context retrieval<sup class="cite" title="Source note: turn4search12" aria-label="research source note">◆</sup>.</p>
+<hr>
+</section>
+</section>
+<section class="doc-section" id="phase-3-web-search-claude-s-search-feature" data-search="tavily brave firecrawl context7 mcp oauth search">
+<h2><span class="h-num">Phase 3</span> <span>Web Search (Claude's Search Feature)</span></h2>
+<p class="lede">Claude's built-in web search maps to MCP servers. The top options for 2026:</p>
+<section class="sub" id="tavily-mcp-server-recommended" data-search="">
+<h3>Tavily MCP Server (Recommended)</h3>
+<figure class="code" data-lang="bash"><figcaption class="code__bar"><span class="code__lang">bash</span><span class="code__name"></span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-bash"># Add to your OpenCode project
+opencode mcp add tavily --url https://mcp.tavily.com/mcp
+
+# Or configure manually in opencode.jsonc</code></pre></figure>
+<p>The Tavily MCP server provides <code>tavily-search</code>, <code>tavily-extract</code>, <code>tavily-map</code>, and <code>tavily-crawl</code> tools with real-time web search capabilities<sup class="cite" title="Source note: turn6search0" aria-label="research source note">◆</sup>.</p>
+</section>
+<section class="sub" id="brave-search-api-alternative" data-search="">
+<h3>Brave Search API Alternative</h3>
+<p>Brave Search API remains a strong foundation option for AI search in 2026, offering good coverage and a generous free tier<sup class="cite" title="Source note: turn6search2" aria-label="research source note">◆</sup>.</p>
+</section>
+<section class="sub" id="configuration" data-search="">
+<h3>Configuration</h3>
+<p>Add to your <code>opencode.jsonc</code>:</p>
+<figure class="code" data-lang="jsonc"><figcaption class="code__bar"><span class="code__lang">jsonc</span><span class="code__name"></span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-json">{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "servers": {
+      "tavily": {
+        "type": "remote",
+        "url": "https://mcp.tavily.com/mcp",
+      },
+      "context7": {
+        "type": "remote",
+        "url": "https://mcp.context7.com/mcp",
+      },
+    },
+  },
+}</code></pre></figure>
+<p>Remote servers use OAuth by default; run <code>/mcps</code> in OpenCode to authenticate<sup class="cite" title="Source note: turn5fetch0" aria-label="research source note">◆</sup>.</p>
+<hr>
+</section>
+</section>
+<section class="doc-section" id="phase-4-structured-outputs-with-pydantic" data-search="pydantic ai schema validation insight">
+<h2><span class="h-num">Phase 4</span> <span>Structured Outputs with Pydantic</span></h2>
+<p class="lede">Claude's structured output feature maps to Pydantic AI when you need guaranteed, validated data formats.</p>
+<section class="sub" id="setting-up-pydantic-ai-with-go-models" data-search="">
+<h3>Setting Up Pydantic AI with Go Models</h3>
+<figure class="code" data-lang="bash"><figcaption class="code__bar"><span class="code__lang">bash</span><span class="code__name"></span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-bash">pip install pydantic-ai</code></pre></figure>
+<p>Create a custom tool that uses Pydantic for validated outputs:</p>
+<figure class="code" data-lang="python"><figcaption class="code__bar"><span class="code__lang">python</span><span class="code__name">.opencode/tools/analyze_data.py</span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-python"># .opencode/tools/analyze_data.py
+from pydantic import BaseModel, Field
+from typing import List, Optional
+
+class Insight(BaseModel):
+    category: str = Field(description="Category of insight")
+    finding: str = Field(description="The specific finding")
+    confidence: float = Field(ge=0, le=1, description="Confidence level 0-1")
+    evidence: Optional[str] = Field(None, description="Supporting evidence")
+
+class AnalysisResult(BaseModel):
+    summary: str
+    key_insights: List[Insight]
+    recommendations: List[str]
+    sentiment: str = Field(description="overall sentiment: positive/neutral/negative")
+
+# This schema can be used with any LLM via LiteLLM or direct API calls</code></pre></figure>
+<p>Pydantic AI implements three methods for structured outputs: Tool Output (using tool calls), and other approaches that guarantee the LLM returns exactly what you specify<sup class="cite" title="Source note: turn4search3" aria-label="research source note">◆</sup><sup class="cite" title="Source note: turn6search4" aria-label="research source note">◆</sup>.</p>
+<hr>
+</section>
+</section>
+<section class="doc-section" id="phase-5-litellm-as-unified-model-router" data-search="litellm proxy fallbacks routing master key security cve">
+<h2><span class="h-num">Phase 5</span> <span>LiteLLM as Unified Model Router</span></h2>
+<p class="lede">When you need to combine OpenCode Go models with direct Claude API access or other providers, LiteLLM acts as the translation layer.</p>
+<section class="sub" id="installation-and-setup" data-search="">
+<h3>Installation and Setup</h3>
+<figure class="code" data-lang="bash"><figcaption class="code__bar"><span class="code__lang">bash</span><span class="code__name"></span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-bash"># Install with proxy support (pin to specific version for security)
+pip install litellm[proxy]==1.97.0
+
+# Or via Docker (recommended for production)
+docker pull litellm/litellm:1.97.0</code></pre></figure>
+<p><strong>Critical security note</strong>: Versions v1.82.7 and v1.82.8 (published March 24, 2026) were affected by a supply-chain compromise with credential-stealing install hooks. Always pin to verified versions<sup class="cite" title="Source note: turn10fetch1" aria-label="research source note">◆</sup>.</p>
+</section>
+<section class="sub" id="configuration-2" data-search="">
+<h3>Configuration</h3>
+<p>Create <code>litellm-config.yaml</code>:</p>
+<figure class="code" data-lang="yaml"><figcaption class="code__bar"><span class="code__lang">yaml</span><span class="code__name"></span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-yaml">model_list:
+  # OpenCode Go models via proxy
+  - model_name: glm-5.3
+    litellm_params:
+      model: openai/glm-5.3
+      api_base: https://go.opencode.ai/v1
+      api_key: os.environ/OPENCODE_GO_KEY
+
+  # Direct Claude API (when you need Claude specifically)
+  - model_name: claude-sonnet
+    litellm_params:
+      model: anthropic/claude-sonnet-4-6
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+  # Fallback chain
+  - model_name: smart-model
+    litellm_params:
+      model: anthropic/claude-sonnet-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+    fallbacks: ["glm-5.3", "kimi-k3"]
+
+router_settings:
+  routing_strategy: least-busy
+  num_retries: 2
+  timeout: 30
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY</code></pre></figure>
+<p>Start the proxy:</p>
+<figure class="code" data-lang="bash"><figcaption class="code__bar"><span class="code__lang">bash</span><span class="code__name"></span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-bash">litellm --config litellm-config.yaml --port 4000</code></pre></figure>
+<p>Now OpenCode can use LiteLLM as a provider, routing between Go models and direct Claude API calls based on availability and cost<sup class="cite" title="Source note: turn0search14" aria-label="research source note">◆</sup><sup class="cite" title="Source note: turn10fetch1" aria-label="research source note">◆</sup>.</p>
+</section>
+<section class="sub" id="connecting-opencode-to-litellm" data-search="">
+<h3>Connecting OpenCode to LiteLLM</h3>
+<p>In OpenCode's <code>opencode.jsonc</code>:</p>
+<figure class="code" data-lang="jsonc"><figcaption class="code__bar"><span class="code__lang">jsonc</span><span class="code__name"></span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-json">{
+  "provider": {
+    "litellm": {
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "http://localhost:4000/v1",
+        "apiKey": "your-litellm-key",
+      },
+      "models": {
+        "smart-model": {},
+        "glm-5.3": {},
+        "claude-sonnet": {},
+      },
+    },
+  },
+}</code></pre></figure>
+<hr>
+</section>
+</section>
+<section class="doc-section" id="phase-6-custom-tools-for-non-coding-work" data-search="custom tools doc analysis chart.js visualization typescript plugin">
+<h2><span class="h-num">Phase 6</span> <span>Custom Tools for Non-Coding Work</span></h2>
+<p class="lede">OpenCode's custom tools system lets you create functions the LLM can call, written in any language (the definition is TypeScript/JavaScript but can invoke Python, shell, etc.)<sup class="cite" title="Source note: turn10fetch0" aria-label="research source note">◆</sup>.</p>
+<section class="sub" id="document-analysis-tool" data-search="">
+<h3>Document Analysis Tool</h3>
+<figure class="code" data-lang="typescript"><figcaption class="code__bar"><span class="code__lang">typescript</span><span class="code__name">.opencode/tools/doc_analysis.ts</span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-typescript">// .opencode/tools/doc_analysis.ts
+import { tool } from "@opencode-ai/plugin";
+import { execSync } from "child_process";
+
+export default tool({
+  description: "Analyze document content and extract structured insights",
+  args: {
+    file_path: tool.schema.string().describe("Path to document"),
+    analysis_type: tool.schema
+      .enum(["summary", "entities", "sentiment", "full"])
+      .describe("Type of analysis"),
+  },
+  async execute(args) {
+    // Invoke Python script for heavy lifting
+    const result = execSync(
+      `python3 ~/.config/opencode/scripts/analyze_doc.py ${args.file_path} ${args.analysis_type}`,
+      { encoding: "utf-8" },
+    );
+    return result;
+  },
+});</code></pre></figure>
+</section>
+<section class="sub" id="data-visualization-tool" data-search="">
+<h3>Data Visualization Tool</h3>
+<figure class="code" data-lang="typescript"><figcaption class="code__bar"><span class="code__lang">typescript</span><span class="code__name">.opencode/tools/visualize.ts</span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-typescript">// .opencode/tools/visualize.ts
+import { tool } from "@opencode-ai/plugin";
+
+export const chart = tool({
+  description: "Create a chart from data",
+  args: {
+    data: tool.schema.string().describe("JSON data to visualize"),
+    chart_type: tool.schema.enum(["bar", "line", "pie", "scatter"]),
+    title: tool.schema.string().optional(),
+  },
+  async execute(args) {
+    // Generate HTML with embedded chart (like Claude Artifacts)
+    const html = `
+      &lt;!DOCTYPE html&gt;
+      &lt;html&gt;
+      &lt;head&gt;
+        &lt;script src="https://cdn.jsdelivr.net/npm/chart.js"&gt;&lt;/script&gt;
+      &lt;/head&gt;
+      &lt;body&gt;
+        &lt;canvas id="chart"&gt;&lt;/canvas&gt;
+        &lt;script&gt;
+          new Chart(document.getElementById('chart'), {
+            type: '${args.chart_type}',
+            data: ${args.data},
+            options: { title: { display: true, text: '${args.title || "Chart"}' } }
+          });
+        &lt;/script&gt;
+      &lt;/body&gt;
+      &lt;/html&gt;
+    `;
+    // Save to a file that can be opened in browser
+    return `Chart saved. Open in browser to view.`;
+  },
+});</code></pre></figure>
+<hr>
+</section>
+</section>
+<section class="doc-section" id="phase-7-mimicking-artifacts" data-search="artifacts share links preview html react">
+<h2><span class="h-num">Phase 7</span> <span>Mimicking Artifacts</span></h2>
+<p class="lede">Claude Artifacts create interactive, shareable apps. The closest approximation combines OpenCode's Web UI with custom tools and OpenCode's share feature:</p>
+<ol class="steps"><li><strong>Generation</strong>: Use custom tools to generate HTML/React/Markdown content</li><li><strong>Preview</strong>: OpenCode's Web UI displays content; use <code>opencode share</code> to create shareable links<sup class="cite" title="Source note: turn8fetch2" aria-label="research source note">◆</sup></li><li><strong>Persistence</strong>: Save generated artifacts to a project directory with skills that reference them</li></ol>
+<p>The fidelity gap is real—Claude's Artifacts have a polished preview environment with live editing. Your version will require more manual file management but achieves the core goal of creating reusable, interactive outputs.</p>
+<hr>
+</section>
+<section class="doc-section" id="phase-8-research-and-analysis-workflows" data-search="market research agent skill fetch_data tavily">
+<h2><span class="h-num">Phase 8</span> <span>Research and Analysis Workflows</span></h2>
+<p class="lede">Here's a concrete non-coding workflow that demonstrates the full stack:</p>
+<section class="sub" id="market-research-agent-setup" data-search="">
+<h3>Market Research Agent Setup</h3>
+<figure class="code" data-lang="bash"><figcaption class="code__bar"><span class="code__lang">bash</span><span class="code__name"></span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-bash"># Create workspace
+mkdir ~/market-research &amp;&amp; cd ~/market-research
+
+# Initialize OpenCode
+opencode /init</code></pre></figure>
+<p>Create <code>.opencode/skills/market-analysis/SKILL.md</code>:</p>
+<figure class="code" data-lang="markdown"><figcaption class="code__bar"><span class="code__lang">markdown</span><span class="code__name">market-analysis/SKILL.md</span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-markdown">---
+name: market-analysis
+description: Conduct comprehensive market research using web search and analysis
+---
+
+## What I do
+
+- Search for recent market data using Tavily/Brave
+- Extract key metrics and trends
+- Analyze competitive landscape
+- Generate structured reports with citations
+
+## When to use me
+
+Use when asked to research a market, industry, company,
+or competitive landscape.</code></pre></figure>
+<p>Create <code>.opencode/tools/fetch_data.py</code> (invoked by TypeScript wrapper):</p>
+<figure class="code" data-lang="python"><figcaption class="code__bar"><span class="code__lang">python</span><span class="code__name"></span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-python">#!/usr/bin/env python3
+import requests
+import json
+from pydantic import BaseModel
+from typing import List
+
+class MarketData(BaseModel):
+    market_size: str
+    growth_rate: str
+    key_players: List[str]
+    trends: List[str]
+
+def fetch_market_data(query: str) -&gt; MarketData:
+    # Use Tavily API or similar
+    response = requests.post(
+        "https://api.tavily.com/search",
+        json={"query": query, "search_depth": "advanced"}
+    )
+    # Process and return structured data
+    ...</code></pre></figure>
+<p><strong>Usage flow</strong>: Start OpenCode → <code>/skills</code> shows market-analysis → prompt: "Analyze the AI coding tools market in 2026" → agent uses search tools, analyzes results, generates structured report with citations.</p>
+<hr>
+</section>
+</section>
+<section class="doc-section" id="known-limitations-and-gaps" data-search="multimodal context window personality reliability cost">
+<h2>Known Limitations and Gaps</h2>
+<p class="lede"><strong>Where the stack falls short of Claude</strong>:</p>
+<ol class="steps"><li><strong>Multimodal input</strong>: Claude handles image uploads natively. OpenCode Go's vision support is limited to DeepSeek V4 Flash Vision Exp, which is experimental<sup class="cite" title="Source note: turn3fetch0" aria-label="research source note">◆</sup>. You'll need separate vision APIs for robust image understanding.</li></ol>
+<ol class="steps"><li><strong>Artifacts UX</strong>: Claude's preview environment with live editing and one-click sharing has no direct equivalent. Your HTML/React outputs will require manual preview and file management.</li></ol>
+<ol class="steps"><li><strong>Context window</strong>: Claude Sonnet offers 200K context; the best Go models offer comparable or larger windows, but the experience of uploading multiple large documents to a chat is smoother in Claude.</li></ol>
+<ol class="steps"><li><strong>Fine-tuned personality</strong>: Claude's specific response style and safety tuning cannot be replicated exactly. Open models have different characteristics—you may prefer some (GLM-5.3's analytical depth) and miss others (Claude's nuanced tone).</li></ol>
+<ol class="steps"><li><strong>Zero-config reliability</strong>: Anthropic's service "just works." Your stack has multiple components that can fail independently—LiteLLM proxy down, MCP server timeout, plugin compatibility issues.</li></ol>
+<ol class="steps"><li><strong>Cost predictability</strong>: Go's $10/month covers the models, but you'll pay separately for search APIs (Tavily ~$30/month for heavy use), vision APIs if needed, and hosting if you run LiteLLM on a VPS.</li></ol>
+<hr>
+</section>
+<section class="doc-section" id="recommended-workflow-example" data-search="morning setup litellm port 4096 daily patterns">
+<h2>Recommended Workflow Example</h2>
+<p class="lede">For a <strong>daily-driver setup</strong> that covers 80% of Claude use cases:</p>
+<figure class="code" data-lang="bash"><figcaption class="code__bar"><span class="code__lang">bash</span><span class="code__name"></span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-bash"># Morning setup (or add to shell profile)
+cd ~/workspace
+
+# Start OpenCode with web UI
+opencode web --port 4096 &amp;
+
+# In another terminal, start LiteLLM if using multiple providers
+litellm --config ~/litellm-config.yaml --port 4000 &amp;
+
+# Open browser to localhost:4096</code></pre></figure>
+<p><strong>Daily usage patterns</strong>:</p>
+<div class="table-wrap" role="region" tabindex="0" aria-label="Daily usage patterns and the workflow that fits each one"><table class="data-table"><caption class="sr-only">Daily usage patterns and the workflow that fits each one</caption><thead><tr><th scope="col"><button type="button" class="th-sort" title="Sort by this column">Task</button></th><th scope="col"><button type="button" class="th-sort" title="Sort by this column">Workflow</button></th></tr></thead><tbody><tr><th scope="row">Quick questions</th><td>Web UI → default Go model → direct answer</td></tr><tr><th scope="row">Document analysis</th><td>Upload file → auto-triggers doc-analysis skill → structured output</td></tr><tr><th scope="row">Research</th><td>Prompt → Tavily MCP search → Pydantic-validated findings</td></tr><tr><th scope="row">Code help</th><td>TUI (better terminal integration) → Go coding models</td></tr><tr><th scope="row">Complex analysis</th><td>Route through LiteLLM → Claude API for hardest problems → fallback to Go models</td></tr><tr><th scope="row">Creative writing</th><td>Web UI → GLM-5.3 (strong creative capabilities)</td></tr><tr><th scope="row">Data analysis</th><td>Custom Python tools → Pydantic structured outputs → visualization tools</td></tr></tbody></table></div>
+<p>The stack costs ~$10–40/month total depending on search API usage, versus $20–200 for Claude subscriptions—<strong>but requires 2–4 hours of initial setup and ongoing maintenance</strong> that Claude's product eliminates.</p>
+<hr>
+</section>
+<section class="doc-section" id="quick-start-checklist" data-search="todo checklist setup order first run">
+<h2>Quick-Start Checklist</h2>
+<p class="legend-row">Merged from both drafts:<span class="item-tag item-tag--both">in both drafts</span><span class="item-tag item-tag--draft">draft only</span><span class="item-tag item-tag--revision">added or corrected in the revision</span></p>
+<div class="checklist" id="merged-quick-start-checklist" data-checklist="quickstart"><div class="checklist__head"><p class="checklist__progress"><progress max="12" value="0" aria-label="Quick-start checklist progress"></progress><span class="checklist__count">0 / 12 done</span></p><button type="button" class="ghost-btn" data-checklist-reset>Reset progress</button></div><ul class="checklist__items"><li><label for="cl-1"><input type="checkbox" id="cl-1"><span class="item-text">Install OpenCode: <code>curl -fsSL https://opencode.ai/install | bash</code><span class="item-tag item-tag--both">in both drafts</span></span></label></li><li><label for="cl-2"><input type="checkbox" id="cl-2"><span class="item-text">Subscribe to OpenCode Go at <code>opencode.ai/go</code> ($10/month) — the corrected URL, not <code>zen.opencode.ai</code><span class="item-tag item-tag--revision">corrected in revision</span></span></label></li><li><label for="cl-3"><input type="checkbox" id="cl-3"><span class="item-text">Connect the API key with <code>/connect</code> in the TUI, then inspect the line-up with <code>/models</code><span class="item-tag item-tag--draft">draft only</span></span></label></li><li><label for="cl-4"><input type="checkbox" id="cl-4"><span class="item-text">Create <code>~/.config/opencode/AGENTS.md</code> with your personal instructions<span class="item-tag item-tag--both">in both drafts</span></span></label></li><li><label for="cl-5"><input type="checkbox" id="cl-5"><span class="item-text">Install 3–5 skills for the workflows you actually repeat<span class="item-tag item-tag--both">in both drafts</span></span></label></li><li><label for="cl-6"><input type="checkbox" id="cl-6"><span class="item-text">Install a memory plugin (<code>opencode-mem</code> or <code>supermemory</code>) so projects persist<span class="item-tag item-tag--draft">draft only</span></span></label></li><li><label for="cl-7"><input type="checkbox" id="cl-7"><span class="item-text">Add a web-search capability: Tavily MCP, Brave API, or the Firecrawl skill<span class="item-tag item-tag--both">in both drafts</span></span></label></li><li><label for="cl-8"><input type="checkbox" id="cl-8"><span class="item-text">Set up <code>opencode web</code> for the browser interface<span class="item-tag item-tag--both">in both drafts</span></span></label></li><li><label for="cl-9"><input type="checkbox" id="cl-9"><span class="item-text">Test with real tasks across coding <strong>and</strong> non-coding domains<span class="item-tag item-tag--both">in both drafts</span></span></label></li><li><label for="cl-10"><input type="checkbox" id="cl-10"><span class="item-text">(Optional) Deploy Open WebUI for a better chat experience<span class="item-tag item-tag--revision">added in revision</span></span></label></li><li><label for="cl-11"><input type="checkbox" id="cl-11"><span class="item-text">(Optional) Install LiteLLM for multi-provider routing<span class="item-tag item-tag--both">in both drafts</span></span></label></li><li><label for="cl-12"><input type="checkbox" id="cl-12"><span class="item-text">(Optional) Create custom tools for domain-specific needs<span class="item-tag item-tag--both">in both drafts</span></span></label></li></ul><p class="sr-only" data-checklist-live aria-live="polite"></p></div>
+<p class="lede">The result is a personalized AI workspace that handles most Claude workflows at 25–50% of the cost, with full control over your data and no vendor lock-in—traded against higher setup complexity and some feature gaps in multimodal and UX polish<sup class="cite" title="Source note: turn0search10" aria-label="research source note">◆</sup><sup class="cite" title="Source note: turn3fetch0" aria-label="research source note">◆</sup><sup class="cite" title="Source note: turn5fetch0" aria-label="research source note">◆</sup><sup class="cite" title="Source note: turn8fetch2" aria-label="research source note">◆</sup>.</p>
+<hr>
+</section>
+</section>
+<section class="part" id="interlude-the-audit" style="--part-color: var(--tn-orange)">
+<header class="part__header"><p class="part__kicker">Interlude</p><h2 class="part__title">The audit</h2><p class="part__note">Fact-checking the draft against current sources, and the four corrections that came out of it.</p></header>
+<section class="doc-section" id="audit-summary-what-i-got-wrong-and-what-i-missed" data-search="corrections mistake zen open webui docs slides">
+<h2>Audit Summary: What I Got Wrong and What I Missed</h2>
+<p class="lede">After careful fact-checking against current sources, I've identified several errors and gaps in my previous response that need correction before presenting the revised guide.</p>
+<p><strong>Key corrections made:</strong></p>
+<ol class="corrections"><li><p><strong>OpenCode Go vs. OpenCode Zen confusion</strong>: I incorrectly referenced "<a href="https://zen.opencode.ai" rel="noopener noreferrer">zen.opencode.ai</a>" for Go signup. OpenCode Go and OpenCode Zen are different services—Go is a $10/month flat subscription while Zen is pay-per-token<sup class="cite" title="Source note: turn0search4" aria-label="research source note">◆</sup><sup class="cite" title="Source note: turn0search3" aria-label="research source note">◆</sup>. The correct Go signup URL is <code>opencode.ai/go</code> with base URL <code>https://opencode.ai/zen/go/v1</code><sup class="cite" title="Source note: turn0search2" aria-label="research source note">◆</sup>.</p></li></ol>
+<ol class="corrections"><li><p><strong>Outdated Claude feature set</strong>: I described Claude's web app based on older information. As of September 2026, Claude has merged Chat and Cowork into a single unified app, added Docs and Slides tools, integrated Claude Design into conversations, and Cowork now runs on web, mobile, and desktop<sup class="cite" title="Source note: turn0search6" aria-label="research source note">◆</sup><sup class="cite" title="Source note: turn0search9" aria-label="research source note">◆</sup>.</p></li></ol>
+<ol class="corrections"><li><p><strong>Missing Open WebUI option</strong>: I overlooked that Open WebUI can be self-hosted and integrates Claude models natively through Anthropic's OpenAI-compatible endpoint, providing an alternative frontend that's closer to Claude's UX than OpenCode's web UI<sup class="cite" title="Source note: turn0search13" aria-label="research source note">◆</sup><sup class="cite" title="Source note: turn0search10" aria-label="research source note">◆</sup>.</p></li></ol>
+<ol class="corrections"><li><p><strong>Incomplete skill ecosystem</strong>: I mentioned only a few skills but missed important ones like <code>stop-slop</code> (strips AI writing tells), <code>Handoff</code> (session compression), <code>Grill Me</code> (plan interrogation), and <code>Obra Superpowers</code> (multi-agent framework)<sup class="cite" title="Source note: turn0search6" aria-label="research source note">◆</sup>.</p></li></ol>
+<hr>
+</section>
+</section>
+<section class="part" id="part-ii-revised-corrected" style="--part-color: var(--tn-magenta)">
+<header class="part__header"><p class="part__kicker">Part II</p><h2 class="part__title">Revised &amp; corrected</h2><p class="part__note">The corrected walk-through, including the options the first draft missed.</p></header>
+<section class="doc-section" id="revised-complete-guide-opencode-go-open-source-stack-to-replicate-claude" data-search="">
+<h2>Revised Complete Guide: OpenCode Go + Open-Source Stack to Replicate Claude</h2>
+<section class="sub" id="the-honest-assessment" data-search="">
+<h3>The Honest Assessment</h3>
+<p>You can replicate approximately 70–80% of Claude's web-app experience using OpenCode Go as your compute layer, with LiteLLM for routing, MCP servers for extended capabilities, and Pydantic AI for structured outputs. The remaining 20–30% gap exists primarily in: native multimodal input (image understanding), polished Artifacts preview environment, zero-config reliability, and Claude's specific personality tuning<sup class="cite" title="Source note: turn0search4" aria-label="research source note">◆</sup><sup class="cite" title="Source note: turn0search6" aria-label="research source note">◆</sup>.</p>
+<p>The fundamental insight is that OpenCode functions as a general-purpose agent runtime—not just a coding tool. Its skills system, MCP integration, custom tools, and web UI provide the infrastructure for building a Claude-like experience on open models<sup class="cite" title="Source note: turn0search7" aria-label="research source note">◆</sup><sup class="cite" title="Source note: turn0search14" aria-label="research source note">◆</sup>.</p>
+<hr>
+</section>
+<section class="sub" id="feature-mapping-table-corrected" data-search="">
+<h3>Feature Mapping Table (Corrected)</h3>
+<div class="table-wrap" role="region" tabindex="0" aria-label="Corrected mapping (September 2026 feature set) with setup effort and fidelity"><table class="data-table"><caption class="sr-only">Corrected mapping (September 2026 feature set) with setup effort and fidelity</caption><thead><tr><th scope="col"><button type="button" class="th-sort" title="Sort by this column">Claude Feature (Sept 2026)</button></th><th scope="col"><button type="button" class="th-sort" title="Sort by this column">OpenCode Stack Equivalent</button></th><th scope="col"><button type="button" class="th-sort" title="Sort by this column">Setup Effort</button></th><th scope="col"><button type="button" class="th-sort" title="Sort by this column">Fidelity</button></th></tr></thead><tbody><tr><th scope="row"><strong>Unified Chat/Cowork</strong></th><td>OpenCode Web UI (<code>opencode web</code>)</td><td><span class="chip chip--low">Low</span></td><td><span class="meter" data-band="mid" role="img" aria-label="Fidelity 75 percent"><span class="meter__track"><span class="meter__fill" style="--v:75%"></span></span><span class="meter__val">~75%</span></span></td></tr><tr><th scope="row"><strong>Projects (knowledge base)</strong></th><td><code>AGENTS.md</code> + skills + memory plugins</td><td><span class="chip chip--medium">Medium</span></td><td><span class="meter" data-band="high" role="img" aria-label="Fidelity 80 percent"><span class="meter__track"><span class="meter__fill" style="--v:80%"></span></span><span class="meter__val">~80%</span></span></td></tr><tr><th scope="row"><strong>Artifacts (interactive apps)</strong></th><td>Custom tools + share links + Open WebUI</td><td><span class="chip chip--mediumhigh">Medium-High</span></td><td><span class="meter" data-band="low" role="img" aria-label="Fidelity 60 percent"><span class="meter__track"><span class="meter__fill" style="--v:60%"></span></span><span class="meter__val">~60%</span></span></td></tr><tr><th scope="row"><strong>Docs &amp; Slides tools</strong></th><td>Custom tools + templates + Pydantic AI</td><td><span class="chip chip--high">High</span></td><td><span class="meter" data-band="low" role="img" aria-label="Fidelity 65 percent"><span class="meter__track"><span class="meter__fill" style="--v:65%"></span></span><span class="meter__val">~65%</span></span></td></tr><tr><th scope="row"><strong>Claude Design (in-chat)</strong></th><td>Custom visualization tools</td><td><span class="chip chip--high">High</span></td><td><span class="meter" data-band="poor" role="img" aria-label="Fidelity 50 percent"><span class="meter__track"><span class="meter__fill" style="--v:50%"></span></span><span class="meter__val">~50%</span></span></td></tr><tr><th scope="row"><strong>Web search</strong></th><td>Firecrawl skill / Tavily MCP / Brave API</td><td><span class="chip chip--low">Low</span></td><td><span class="meter" data-band="high" role="img" aria-label="Fidelity 88 percent"><span class="meter__track"><span class="meter__fill" style="--v:88%"></span></span><span class="meter__val">High</span></span></td></tr><tr><th scope="row"><strong>File analysis (PDF/images)</strong></th><td>MCP document servers + vision models</td><td><span class="chip chip--medium">Medium</span></td><td><span class="meter" data-band="low" role="img" aria-label="Fidelity 70 percent"><span class="meter__track"><span class="meter__fill" style="--v:70%"></span></span><span class="meter__val">~70%</span></span></td></tr><tr><th scope="row"><strong>Code generation</strong></th><td>OpenCode native capability</td><td><span class="chip chip--none">None</span></td><td><span class="meter" data-band="high" role="img" aria-label="Fidelity 88 percent"><span class="meter__track"><span class="meter__fill" style="--v:88%"></span></span><span class="meter__val">High</span></span></td></tr><tr><th scope="row"><strong>Extended thinking</strong></th><td>Kimi K3 / GLM-5.3 reasoning modes</td><td><span class="chip chip--none">None</span></td><td><span class="meter" data-band="low" role="img" aria-label="Fidelity 68 percent"><span class="meter__track"><span class="meter__fill" style="--v:68%"></span></span><span class="meter__val">Medium</span></span></td></tr><tr><th scope="row"><strong>Memory across sessions</strong></th><td>Memory plugins + AGENTS.md</td><td><span class="chip chip--medium">Low-Medium</span></td><td><span class="meter" data-band="mid" role="img" aria-label="Fidelity 75 percent"><span class="meter__track"><span class="meter__fill" style="--v:75%"></span></span><span class="meter__val">~75%</span></span></td></tr><tr><th scope="row"><strong>Skills &amp; Plugins</strong></th><td>OpenCode skills system (SKILL.md)</td><td><span class="chip chip--low">Low</span></td><td><span class="meter" data-band="high" role="img" aria-label="Fidelity 85 percent"><span class="meter__track"><span class="meter__fill" style="--v:85%"></span></span><span class="meter__val">~85%</span></span></td></tr><tr><th scope="row"><strong>Model routing</strong></th><td>LiteLLM proxy</td><td><span class="chip chip--medium">Medium</span></td><td><span class="meter" data-band="high" role="img" aria-label="Fidelity 88 percent"><span class="meter__track"><span class="meter__fill" style="--v:88%"></span></span><span class="meter__val">High</span></span></td></tr><tr><th scope="row"><strong>Structured outputs</strong></th><td>Pydantic AI framework</td><td><span class="chip chip--medium">Medium</span></td><td><span class="meter" data-band="high" role="img" aria-label="Fidelity 88 percent"><span class="meter__track"><span class="meter__fill" style="--v:88%"></span></span><span class="meter__val">High</span></span></td></tr><tr><th scope="row"><strong>Mobile access</strong></th><td>OpenCode web on mobile browser</td><td><span class="chip chip--low">Low</span></td><td><span class="meter" data-band="low" role="img" aria-label="Fidelity 60 percent"><span class="meter__track"><span class="meter__fill" style="--v:60%"></span></span><span class="meter__val">~60%</span></span></td></tr></tbody></table></div>
+<hr>
+</section>
+<section class="sub" id="phase-1-corrected-base-setup" data-search="install opencode.ai/go opencode zen api key base url models">
+<h3>Phase 1: Corrected Base Setup</h3>
+<figure class="code" data-lang="bash"><figcaption class="code__bar"><span class="code__lang">bash</span><span class="code__name"></span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-bash"># Install OpenCode
+curl -fsSL https://opencode.ai/install | bash
+
+# Navigate to your workspace
+cd ~/my-workspace
+
+# Start OpenCode (TUI mode)
+opencode
+
+# OR start with web interface
+opencode web</code></pre></figure>
+<p><strong>Connecting OpenCode Go (corrected process):</strong></p>
+<ol class="steps"><li>Visit **<a href="https://opencode.ai/go**" rel="noopener noreferrer">opencode.ai/go**</a> (not <a href="https://zen.opencode.ai" rel="noopener noreferrer">zen.opencode.ai</a>) and subscribe for $10/month<sup class="cite" title="Source note: turn0search2" aria-label="research source note">◆</sup></li><li>Create/sign into your account with email</li><li>Copy your API key from the dashboard</li><li>In OpenCode TUI, run <code>/connect</code>, select <code>OpenCode Go</code>, paste your key</li></ol>
+<p>The base URL for OpenCode Go is <code>https://opencode.ai/zen/go/v1</code>, and it uses an OpenAI-compatible endpoint with the token variable <code>OPENCODE_API_KEY</code><sup class="cite" title="Source note: turn0search2" aria-label="research source note">◆</sup>.</p>
+<p><strong>Current Go model lineup includes</strong>: GLM-5.3-Flash, GLM-5.3, GLM-5.2, Kimi K3, Kimi K2.7 Code, GPT 5.6 Luna, DeepSeek V4 Pro, DeepSeek V4 Flash, Qwen3.8 Max, LongCat-2.0, MiMo-V2.5, MiniMax M3, and others with monthly limits from $15–$60 in token-equivalent usage<sup class="cite" title="Source note: turn0search4" aria-label="research source note">◆</sup>.</p>
+<hr>
+</section>
+<section class="sub" id="phase-2-claude-projects-equivalent-knowledge-base" data-search="agents.md skills stop-slop handoff grill me obra superpowers">
+<h3>Phase 2: Claude Projects Equivalent (Knowledge Base)</h3>
+<p>Claude Projects pin documents and instructions that persist across conversations. OpenCode replicates this through three mechanisms:</p>
+<section class="subsub" id="agents-md-instructions" data-search="">
+<h4>AGENTS.md (Instructions)</h4>
+<p>Create <code>~/.config/opencode/AGENTS.md</code> for global rules:</p>
+<figure class="code" data-lang="markdown"><figcaption class="code__bar"><span class="code__lang">markdown</span><span class="code__name">AGENTS.md</span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-markdown"># My Assistant Configuration
+
+## Communication Style
+
+- Be direct and concise
+- Show reasoning for complex analyses
+- Ask clarifying questions for ambiguous requests
+
+## Analysis Preferences
+
+- When analyzing documents: extract entities, relationships, key claims first
+- For research: always cite sources and distinguish facts from inference
+- For creative tasks: offer multiple options with tradeoffs
+
+## My Context
+
+- Field: [your domain]
+- Common tasks: analysis, writing, research, planning, coding
+- Output preferences: structured formats when possible</code></pre></figure>
+<p>Run <code>/init</code> in any project directory and OpenCode scans the codebase to generate relevant context automatically<sup class="cite" title="Source note: turn0search7" aria-label="research source note">◆</sup>.</p>
+</section>
+<section class="subsub" id="skills-system-reusable-behaviors" data-search="">
+<h4>Skills System (Reusable Behaviors)</h4>
+<p>Create <code>.opencode/skills/&lt;name&gt;/SKILL.md</code> for domain capabilities:</p>
+<figure class="code" data-lang="markdown"><figcaption class="code__bar"><span class="code__lang">markdown</span><span class="code__name">research-analyst/SKILL.md</span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-markdown">---
+name: research-analyst
+description: Conduct thorough research with citations and structured analysis
+---
+
+## What I do
+
+- Search the web for current information using available tools
+- Extract key findings, distinguish facts from opinions
+- Synthesize insights with proper citations
+- Identify gaps and areas needing further investigation
+
+## When to use me
+
+Use when asked to research a topic, analyze trends,
+compare options, or provide a comprehensive overview
+of any subject requiring current information.</code></pre></figure>
+<p>OpenCode discovers skills from multiple locations: <code>.opencode/skills/</code>, <code>.claude/skills/</code> (Claude compatibility), and <code>~/.config/opencode/skills/</code> (global)<sup class="cite" title="Source note: turn0search7" aria-label="research source note">◆</sup>.</p>
+</section>
+<section class="subsub" id="recommended-skills-to-install" data-search="">
+<h4>Recommended Skills to Install</h4>
+<p>Based on the 2026 ecosystem, these skills provide the most value for Claude-like functionality<sup class="cite" title="Source note: turn0search6" aria-label="research source note">◆</sup>:</p>
+<div class="table-wrap" role="region" tabindex="0" aria-label="Community skills worth installing and the Claude features they stand in for"><table class="data-table"><caption class="sr-only">Community skills worth installing and the Claude features they stand in for</caption><thead><tr><th scope="col"><button type="button" class="th-sort" title="Sort by this column">Skill</button></th><th scope="col"><button type="button" class="th-sort" title="Sort by this column">Purpose</button></th><th scope="col"><button type="button" class="th-sort" title="Sort by this column">Claude Equivalent</button></th></tr></thead><tbody><tr><th scope="row"><strong>Firecrawl</strong></th><td>Live web context: search, scrape, crawl</td><td>Web search + file analysis</td></tr><tr><th scope="row"><strong>stop-slop</strong></th><td>Strips AI writing patterns from output</td><td>Claude's natural tone</td></tr><tr><th scope="row"><strong>Handoff</strong></th><td>Compresses sessions to markdown for continuity</td><td>Project memory</td></tr><tr><th scope="row"><strong>Grill Me</strong></th><td>Interviews you about plans before execution</td><td>Claude's clarifying questions</td></tr><tr><th scope="row"><strong>Obra Superpowers</strong></th><td>Multi-agent development framework</td><td>Complex task decomposition</td></tr></tbody></table></div>
+<p>Install via the community repository:</p>
+<figure class="code" data-lang="bash"><figcaption class="code__bar"><span class="code__lang">bash</span><span class="code__name"></span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-bash">git clone https://github.com/farmage/opencode-skills.git
+cd opencode-skills
+./install.sh  # global installation
+# OR
+make install-local  # project-local</code></pre></figure>
+<hr>
+</section>
+</section>
+<section class="sub" id="phase-3-web-search-claude-s-search-feature-2" data-search="tavily brave firecrawl context7 mcp oauth search">
+<h3>Phase 3: Web Search (Claude's Search Feature)</h3>
+<p>Claude's integrated web search maps to several options:</p>
+<section class="subsub" id="option-a-firecrawl-skill-recommended" data-search="">
+<h4>Option A: Firecrawl Skill (Recommended)</h4>
+<p>The Firecrawl skill provides live web context including search, scraping, crawling, and browser automation—closest to Claude's native search<sup class="cite" title="Source note: turn0search6" aria-label="research source note">◆</sup>.</p>
+</section>
+<section class="subsub" id="option-b-tavily-mcp-server" data-search="">
+<h4>Option B: Tavily MCP Server</h4>
+<figure class="code" data-lang="bash"><figcaption class="code__bar"><span class="code__lang">bash</span><span class="code__name"></span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-bash">opencode mcp add tavily --url https://mcp.tavily.com/mcp</code></pre></figure>
+</section>
+<section class="subsub" id="option-c-brave-search-api" data-search="">
+<h4>Option C: Brave Search API</h4>
+<p>Configure via custom tool or MCP server.</p>
+</section>
+<section class="subsub" id="mcp-configuration-corrected-syntax" data-search="">
+<h4>MCP Configuration (Corrected Syntax)</h4>
+<p>Add to your <code>opencode.jsonc</code>:</p>
+<figure class="code" data-lang="jsonc"><figcaption class="code__bar"><span class="code__lang">jsonc</span><span class="code__name"></span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-json">{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "servers": {
+      "tavily": {
+        "type": "remote",
+        "url": "https://mcp.tavily.com/mcp",
+      },
+      "context7": {
+        "type": "remote",
+        "url": "https://mcp.context7.com/mcp",
+      },
+    },
+  },
+}</code></pre></figure>
+<p>Remote servers use OAuth by default; authenticate via <code>/mcps</code> command in OpenCode<sup class="cite" title="Source note: turn0search17" aria-label="research source note">◆</sup>.</p>
+<hr>
+</section>
+</section>
+<section class="sub" id="phase-4-pydantic-ai-for-structured-outputs" data-search="pydantic ai research finding report schema">
+<h3>Phase 4: Pydantic AI for Structured Outputs</h3>
+<p>Pydantic AI is a full agent framework for building typed, production-ready agents in Python. It provides validated outputs, model routing, and evaluation capabilities<sup class="cite" title="Source note: turn0search12" aria-label="research source note">◆</sup><sup class="cite" title="Source note: turn0search14" aria-label="research source note">◆</sup>.</p>
+<figure class="code" data-lang="bash"><figcaption class="code__bar"><span class="code__lang">bash</span><span class="code__name"></span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-bash">pip install pydantic-ai</code></pre></figure>
+<p>Create structured output schemas:</p>
+<figure class="code" data-lang="python"><figcaption class="code__bar"><span class="code__lang">python</span><span class="code__name"></span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-python">from pydantic import BaseModel, Field
+from typing import List, Optional
+
+class ResearchFinding(BaseModel):
+    claim: str = Field(description="The specific finding or claim")
+    evidence: str = Field(description="Supporting evidence or source")
+    confidence: float = Field(ge=0, le=1, description="Confidence level")
+    source_url: Optional[str] = Field(None, description="Source URL if applicable")
+
+class ResearchReport(BaseModel):
+    topic: str
+    summary: str
+    key_findings: List[ResearchFinding]
+    open_questions: List[str]
+    methodology: str</code></pre></figure>
+<p>Use with OpenCode Go models through LiteLLM or direct API integration.</p>
+<hr>
+</section>
+<section class="sub" id="phase-5-litellm-for-model-routing" data-search="litellm yaml fallbacks least-busy pin version">
+<h3>Phase 5: LiteLLM for Model Routing</h3>
+<p>LiteLLM acts as a unified proxy that translates between different API formats, enabling you to combine OpenCode Go models with direct Claude API access.</p>
+<figure class="code" data-lang="bash"><figcaption class="code__bar"><span class="code__lang">bash</span><span class="code__name"></span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-bash"># Install (pin to specific version for security)
+pip install litellm[proxy]==1.97.0</code></pre></figure>
+<p><strong>Security note</strong>: Versions v1.82.7 and v1.82.8 (March 24, 2026) were compromised with credential-stealing hooks. Always pin to verified versions<sup class="cite" title="Source note: turn0search4" aria-label="research source note">◆</sup>.</p>
+<p>Create <code>litellm-config.yaml</code>:</p>
+<figure class="code" data-lang="yaml"><figcaption class="code__bar"><span class="code__lang">yaml</span><span class="code__name"></span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-yaml">model_list:
+  # OpenCode Go models
+  - model_name: glm-5.3
+    litellm_params:
+      model: openai/glm-5.3
+      api_base: https://opencode.ai/zen/go/v1
+      api_key: os.environ/OPENCODE_API_KEY
+
+  # Direct Claude API (when needed)
+  - model_name: claude-sonnet
+    litellm_params:
+      model: anthropic/claude-sonnet-4-6
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+  # Smart routing with fallbacks
+  - model_name: smart
+    litellm_params:
+      model: anthropic/claude-sonnet-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+    fallbacks: ["glm-5.3", "kimi-k3"]
+
+router_settings:
+  routing_strategy: least-busy
+  num_retries: 2
+  timeout: 30</code></pre></figure>
+<hr>
+</section>
+<section class="sub" id="phase-6-alternative-approach-open-webui-integration" data-search="open webui docker anthropic frontend knowledge base">
+<h3>Phase 6: Alternative Approach — Open WebUI Integration</h3>
+<p>An option I previously missed: <strong>Open WebUI</strong> can be self-hosted and integrates Claude models natively, providing a chat experience closer to Claude's native interface than OpenCode's web UI<sup class="cite" title="Source note: turn0search13" aria-label="research source note">◆</sup><sup class="cite" title="Source note: turn0search10" aria-label="research source note">◆</sup>.</p>
+<figure class="code" data-lang="bash"><figcaption class="code__bar"><span class="code__lang">bash</span><span class="code__name"></span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-bash"># Deploy Open WebUI
+docker run -d -p 3000:8080 \
+  -v open-webui:/app/backend/data \
+  -e ANTHROPIC_API_KEY=your_key_here \
+  ghcr.io/open-webui/open-webui:main</code></pre></figure>
+<p>Open WebUI supports Claude models through Anthropic's OpenAI-compatible endpoint with automatic model discovery. It provides persistent knowledge bases, team collaboration, and a polished chat interface<sup class="cite" title="Source note: turn0search13" aria-label="research source note">◆</sup>.</p>
+<p><strong>Hybrid architecture possibility</strong>:</p>
+<ul class="bullets"><li>Use Open WebUI as the frontend (better chat UX)</li><li>Route requests through LiteLLM (model flexibility)</li><li>Use OpenCode Go models for most tasks</li><li>Fall back to Claude API for specific needs</li></ul>
+<hr>
+</section>
+<section class="sub" id="phase-7-custom-tools-for-non-coding-work" data-search="create_artifact tool write file html dashboard">
+<h3>Phase 7: Custom Tools for Non-Coding Work</h3>
+<p>OpenCode's custom tools system lets you create functions the LLM can call. Tool definitions are TypeScript/JavaScript but can invoke scripts in any language<sup class="cite" title="Source note: turn0search16" aria-label="research source note">◆</sup>.</p>
+<section class="subsub" id="document-analysis-tool-2" data-search="">
+<h4>Document Analysis Tool</h4>
+<figure class="code" data-lang="typescript"><figcaption class="code__bar"><span class="code__lang">typescript</span><span class="code__name">.opencode/tools/analyze_document.ts</span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-typescript">// .opencode/tools/analyze_document.ts
+import { tool } from "@opencode-ai/plugin";
+import { execSync } from "child_process";
+
+export default tool({
+  description: "Analyze document content and extract structured insights",
+  args: {
+    file_path: tool.schema.string().describe("Path to document"),
+    analysis_type: tool.schema.enum([
+      "summary",
+      "entities",
+      "sentiment",
+      "full",
+    ]),
+  },
+  async execute(args) {
+    const result = execSync(
+      `python3 ~/.config/opencode/scripts/analyze.py ${args.file_path} ${args.analysis_type}`,
+      { encoding: "utf-8" },
+    );
+    return result;
+  },
+});</code></pre></figure>
+</section>
+<section class="subsub" id="visualization-tool-artifacts-like" data-search="">
+<h4>Visualization Tool (Artifacts-like)</h4>
+<figure class="code" data-lang="typescript"><figcaption class="code__bar"><span class="code__lang">typescript</span><span class="code__name">.opencode/tools/create_artifact.ts</span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-typescript">// .opencode/tools/create_artifact.ts
+import { tool } from "@opencode-ai/plugin";
+import { writeFileSync } from "fs";
+import { join } from "path";
+
+export default tool({
+  description: "Create an interactive HTML artifact (chart, dashboard, app)",
+  args: {
+    content: tool.schema.string().describe("HTML/React/Markdown content"),
+    title: tool.schema.string().describe("Title for the artifact"),
+    artifact_type: tool.schema.enum(["chart", "dashboard", "document", "app"]),
+  },
+  async execute(args, context) {
+    const artifactsDir = join(context.cwd, ".artifacts");
+    const filename = `${Date.now()}-${args.title.replace(/\s+/g, "-")}.html`;
+    const filepath = join(artifactsDir, filename);
+
+    writeFileSync(filepath, args.content);
+
+    return `Artifact created: ${filepath}\nOpen in browser to view.`;
+  },
+});</code></pre></figure>
+<hr>
+</section>
+</section>
+<section class="sub" id="phase-8-research-workflow-example" data-search="research workspace tree skills tools">
+<h3>Phase 8: Research Workflow Example</h3>
+<p>Here's a concrete non-coding workflow demonstrating the full stack:</p>
+<figure class="code" data-lang="bash"><figcaption class="code__bar"><span class="code__lang">bash</span><span class="code__name"></span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-bash"># Create workspace
+mkdir ~/research &amp;&amp; cd ~/research
+opencode /init  # Generate project context</code></pre></figure>
+<p><strong>Setup skills and tools:</strong></p>
+<figure class="code" data-lang="text"><figcaption class="code__bar"><span class="code__lang">text</span><span class="code__name"></span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-plaintext">.opencode/
+├── skills/
+│   ├── research-analyst/
+│   │   └── SKILL.md
+│   ├── market-analysis/
+│   │   └── SKILL.md
+│   └── document-review/
+│       └── SKILL.md
+├── tools/
+│   ├── analyze_document.ts
+│   ├── create_chart.ts
+│   └── fetch_data.ts
+└── AGENTS.md</code></pre></figure>
+<p><strong>Usage</strong>: Start OpenCode → prompt "Research the AI coding tools market" → agent uses Firecrawl skill for search, analyze_document tool for PDFs, create_chart tool for visualizations, Pydantic AI for structured outputs.</p>
+<hr>
+</section>
+<section class="sub" id="known-limitations-updated-and-honest" data-search="vision artifacts docs slides mobile reliability">
+<h3>Known Limitations (Updated and Honest)</h3>
+<p><strong>Where the stack genuinely falls short</strong>:</p>
+<ol class="steps"><li><strong>Image understanding</strong>: Claude handles image uploads natively with strong vision capabilities. OpenCode Go's vision support is limited to experimental models. You'll need separate vision APIs for robust image analysis<sup class="cite" title="Source note: turn0search8" aria-label="research source note">◆</sup>.</li></ol>
+<ol class="steps"><li><strong>Artifacts UX</strong>: Claude's preview environment with live editing and instant sharing has no direct equivalent. Your HTML outputs require manual file management and browser preview.</li></ol>
+<ol class="steps"><li><strong>Docs &amp; Slides tools</strong>: Claude's new native document and presentation tools (September 2026) have no direct open-source equivalent. You'd need to build custom tools with significant effort<sup class="cite" title="Source note: turn0search9" aria-label="research source note">◆</sup>.</li></ol>
+<ol class="steps"><li><strong>Personality and tone</strong>: Claude's specific response characteristics cannot be replicated. Open models have different strengths (GLM-5.3's analytical depth, Kimi K3's reasoning) and weaknesses.</li></ol>
+<ol class="steps"><li><strong>Reliability</strong>: Anthropic's service is consistently available. Your multi-component stack has more failure points—LiteLLM proxy, MCP servers, plugins, custom tools.</li></ol>
+<ol class="steps"><li><strong>Mobile experience</strong>: Claude has native mobile apps. Your stack requires using OpenCode's web interface on mobile browser, which is functional but less polished.</li></ol>
+<hr>
+</section>
+<section class="sub" id="cost-comparison-realistic" data-search="budget dollars per month claude pro max calculator">
+<h3>Cost Comparison (Realistic)</h3>
+<div class="table-wrap" role="region" tabindex="0" aria-label="Monthly cost of the assembled stack against Claude subscription tiers"><table class="data-table"><caption class="sr-only">Monthly cost of the assembled stack against Claude subscription tiers</caption><thead><tr><th scope="col"><button type="button" class="th-sort" title="Sort by this column">Component</button></th><th scope="col"><button type="button" class="th-sort" title="Sort by this column">Monthly Cost</button></th><th scope="col"><button type="button" class="th-sort" title="Sort by this column">Claude Equivalent</button></th></tr></thead><tbody><tr><th scope="row">OpenCode Go</th><td>$10</td><td>$20 (Pro) – $200 (Max)</td></tr><tr><th scope="row">Search API (Tavily/Brave)</th><td>$0–30</td><td>Included</td></tr><tr><th scope="row">Vision API (if needed)</th><td>$0–20</td><td>Included</td></tr><tr><th scope="row">Hosting (if using VPS)</th><td>$0–20</td><td>Included</td></tr><tr><th scope="row"><strong>Total</strong></th><td><strong>$10–80</strong></td><td><strong>$20–200</strong></td></tr></tbody></table></div>
+<p>The cost advantage diminishes if you need vision capabilities or heavy search usage, but remains significant for text-focused workflows.</p>
+<hr>
+<div class="calc" id="cost-calculator"><h3>Interactive cost estimator</h3><p>The table above gives a range of $10–80 per month for the self-assembled stack, against $20–200 for Claude subscriptions. Move the sliders to price your own mix — OpenCode Go itself is a flat $10.</p><div class="calc__grid"><div class="calc__field"><label for="calc-1">Search API (Tavily / Brave)</label><input type="range" id="calc-1" min="0" max="30" step="1" value="0" aria-describedby="calc-1-note"><output for="calc-1">$0</output><span class="cell-note" id="calc-1-note">Documented range: $0–30 for heavy use</span></div><div class="calc__field"><label for="calc-2">Vision API</label><input type="range" id="calc-2" min="0" max="20" step="1" value="0" aria-describedby="calc-2-note"><output for="calc-2">$0</output><span class="cell-note" id="calc-2-note">Only needed for robust image understanding</span></div><div class="calc__field"><label for="calc-3">Hosting (VPS for LiteLLM / Open WebUI)</label><input type="range" id="calc-3" min="0" max="20" step="1" value="0" aria-describedby="calc-3-note"><output for="calc-3">$0</output><span class="cell-note" id="calc-3-note">$0 if you run everything locally</span></div><fieldset><legend>Claude plan to compare</legend><label><input type="radio" name="claude-plan" value="20" checked> Pro — $20/mo</label><label><input type="radio" name="claude-plan" value="200"> Max — $200/mo</label></fieldset></div><div class="calc__result"><p class="calc__out"><b id="calc-stack">$10</b><span>Your stack / month (incl. flat $10 Go)</span></p><p class="calc__out"><b id="calc-claude">$20</b><span>Claude plan / month</span></p><p class="calc__out"><b id="calc-gap">−$10</b><span>Difference</span></p><p class="calc__out"><b id="calc-pct">50%</b><span>Cheaper than the plan</span></p></div><div class="calc__bar" role="img" aria-label="Relative monthly cost of the stack and the Claude plan"><i id="calc-bar-stack"></i><i id="calc-bar-claude"></i></div><p class="calc__legend"><span><i style="background: var(--tn-blue)"></i>stack</span><span><i style="background: var(--tn-orange)"></i>Claude plan</span></p></div>
+</section>
+<section class="sub" id="recommended-architecture" data-search="stack diagram litellm opencode pydantic external services">
+<h3>Recommended Architecture</h3>
+<p>For the best experience balancing capability and simplicity:</p>
+<div class="tabs" data-tabs="architecture"><div class="tabs__list" role="tablist" aria-label="Architecture views"><button type="button" class="tabs__tab" role="tab" id="tab-arch-visual" aria-controls="panel-arch-visual" aria-selected="true">Visual layers</button><button type="button" class="tabs__tab" role="tab" id="tab-arch-ascii" aria-controls="panel-arch-ascii" aria-selected="false" tabindex="-1">Original ASCII</button></div><div class="tabs__panel" role="tabpanel" id="panel-arch-visual" aria-labelledby="tab-arch-visual" tabindex="0"><ol class="arch"><li class="arch__layer" style="--layer-color: var(--tn-blue)"><p class="arch__head">Frontend <span class="arch__role">entry point</span></p><ul class="arch__parts"><li>Open WebUI (self-hosted)</li><li>OpenCode Web UI</li><li>TUI</li></ul><p class="arch__note">Pick one: Open WebUI is the closest to Claude's chat surface, the OpenCode web UI is the path of least resistance.</p></li><li class="arch__layer" style="--layer-color: var(--tn-magenta)"><p class="arch__head">LiteLLM <span class="arch__role">model router</span></p><ul class="arch__parts"><li>OpenCode Go ($10/mo)</li><li>Claude API (fallback)</li><li>Local models (optional)</li></ul><p class="arch__note">OpenAI-compatible proxy in front of every provider, with fallbacks and retries.</p></li><li class="arch__layer" style="--layer-color: var(--tn-cyan)"><p class="arch__head">OpenCode <span class="arch__role">agent runtime</span></p><ul class="arch__parts"><li>Skills (behaviours)</li><li>Custom tools (capabilities)</li><li>MCP servers (extensions)</li><li>AGENTS.md (instructions)</li></ul><p class="arch__note">The actual agent loop: this is the layer that makes OpenCode more than a coding tool.</p></li><li class="arch__layer" style="--layer-color: var(--tn-green)"><p class="arch__head">Pydantic AI <span class="arch__role">structured outputs</span></p><ul class="arch__parts"><li>Typed schemas</li><li>Validated results</li><li>Evaluation hooks</li></ul><p class="arch__note">Guarantees the shape of what comes back, so downstream steps can trust it.</p></li><li class="arch__layer" style="--layer-color: var(--tn-orange)"><p class="arch__head">External services <span class="arch__role">capabilities</span></p><ul class="arch__parts"><li>Search APIs</li><li>Vision APIs</li><li>Document processing</li></ul><p class="arch__note">Where the stack has to buy reach that Claude ships natively.</p></li></ol></div><div class="tabs__panel" role="tabpanel" id="panel-arch-ascii" aria-labelledby="tab-arch-ascii" tabindex="0" hidden><figure class="code code--ascii" data-lang="text"><figcaption class="code__bar"><span class="code__lang">text</span><span class="code__name">recommended-architecture</span><button type="button" class="code__copy" data-copy title="Copy this block"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h8"></path></svg><span>Copy</span></button><span class="sr-only" data-copy-status aria-live="polite"></span></figcaption><pre class="code__pre" tabindex="0"><code class="language-plaintext">┌─────────────────────────────────────┐
+│   Open WebUI (Frontend)             │
+│   OR OpenCode Web UI               │
+├─────────────────────────────────────┤
+│   LiteLLM (Model Router)           │
+│   ├─ OpenCode Go ($10/mo)         │
+│   ├─ Claude API (fallback)         │
+│   └─ Local models (optional)       │
+├─────────────────────────────────────┤
+│   OpenCode (Agent Runtime)          │
+│   ├─ Skills (behaviors)            │
+│   ├─ Custom Tools (capabilities)   │
+│   ├─ MCP Servers (extensions)      │
+│   └─ AGENTS.md (instructions)      │
+├─────────────────────────────────────┤
+│   Pydantic AI (Structured Outputs) │
+├─────────────────────────────────────┤
+│   External Services                 │
+│   ├─ Search APIs                   │
+│   ├─ Vision APIs                   │
+│   └─ Document processing           │
+└─────────────────────────────────────┘</code></pre></figure></div></div>
+<p><strong>Quick-start checklist</strong>:</p>
+<div class="callout callout--info"><span class="callout__title">Same closing checklist</span><p>The revision ends with the same quick-start checklist. Rather than duplicate it, every item from both drafts — including the two the revision added (deploying Open WebUI and testing across coding and non-coding domains) — is merged into one interactive checklist in Part I.</p><p><a href="#merged-quick-start-checklist">Jump to the consolidated checklist</a></p></div>
+<p>This stack provides a genuinely capable alternative to Claude for most use cases, with full control over your data and no vendor lock-in, at the cost of setup complexity and some feature gaps in multimodal and polish<sup class="cite" title="Source note: turn0search4" aria-label="research source note">◆</sup><sup class="cite" title="Source note: turn0search6" aria-label="research source note">◆</sup><sup class="cite" title="Source note: turn0search7" aria-label="research source note">◆</sup>.</p>
+</section>
+</section>
+</section>  </main>
+</div>
+<footer class="footer"><div class="footer__inner"><p><strong>Compiled from <code>tmp.md</code></strong> on 2026-09-19 as a single self-contained HTML file &mdash; no build step is needed to read it. Syntax highlighting uses highlight.js 11.11.2 from cdnjs with a Subresource Integrity hash; if the CDN is unreachable the code blocks stay readable as plain text.</p><p>Theme: <strong>Tokyo Night</strong> — night, storm, moon and day variants, using the palette from folke/tokyonight.nvim. Content belongs to the source notes; the interaction layer is progressive enhancement only.</p></div></footer><button type="button" class="to-top" id="to-top" aria-label="Back to top">
+  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 19V5M5 12l7-7 7 7"></path></svg>
+</button>
+<dialog id="help-dialog" aria-labelledby="help-title">
+  <div class="dialog__head">
+    <h2 id="help-title">Keyboard shortcuts</h2>
+    <button type="button" class="ghost-btn" data-help-close>Close</button>
+  </div>
+  <div class="dialog__body">
+    <table class="shortcuts">
+      <caption class="sr-only">Keyboard shortcuts for this page</caption>
+      <thead>
+        <tr><th scope="col">Key</th><th scope="col">Action</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row"><kbd>/</kbd></th><td>Focus the section filter in the contents panel</td></tr>
+        <tr><th scope="row"><kbd>Esc</kbd></th><td>Clear the filter, close this dialog, close the contents drawer</td></tr>
+        <tr><th scope="row"><kbd>t</kbd></th><td>Cycle Tokyo Night: night &rarr; storm &rarr; moon &rarr; day</td></tr>
+        <tr><th scope="row"><kbd>?</kbd></th><td>Open this dialog</td></tr>
+        <tr><th scope="row"><kbd>Tab</kbd></th><td>Reach filters, tabs, toggles, checkboxes and copy buttons</td></tr>
+      </tbody>
+    </table>
+    <p>Sortable table headers are real buttons &mdash; press <kbd>Enter</kbd> or <kbd>Space</kbd> to sort a column.</p>
+  </div>
+</dialog>
+<script>
+/* ==========================================================================
+   Interactive behaviour for the OpenCode Go x Claude guide.
+   Progressive enhancement only: every feature degrades gracefully and no
+   inline event handlers are used (all wiring happens via addEventListener).
+   ========================================================================== */
+(function () {
+  "use strict";
+
+  var doc = document;
+  var root = doc.documentElement;
+  root.classList.remove("no-js");
+
+  function $(sel, ctx) { return (ctx || doc).querySelector(sel); }
+  function $$(sel, ctx) {
+    return Array.prototype.slice.call((ctx || doc).querySelectorAll(sel));
+  }
+  var store = {
+    get: function (key, fallback) {
+      try {
+        var v = window.localStorage.getItem(key);
+        return v === null ? fallback : v;
+      } catch (err) { return fallback; }
+    },
+    set: function (key, value) {
+      try { window.localStorage.setItem(key, value); } catch (err) { /* private mode */ }
+    }
+  };
+
+  var KEY = {
+    theme: "tnguide.theme",
+    cites: "tnguide.cites",
+    checklist: "tnguide.checklist"
+  };
+  var THEME_COLORS = { night: "#1a1b26", storm: "#24283b", moon: "#222436", day: "#e1e2e7" };
+
+  function headerOffset() {
+    var cs = window.getComputedStyle(root);
+    var h = parseFloat(cs.getPropertyValue("--topbar-h"));
+    return (isNaN(h) ? 60 : h) + 18;
+  }
+
+  /* ------------------------------------------------------------------ theme */
+  function initTheme() {
+    var list = ["night", "storm", "moon", "day"];
+    var buttons = $$("[data-theme-set]");
+    var stored = store.get(KEY.theme, "");
+    if (list.indexOf(stored) === -1) {
+      var prefersLight = window.matchMedia &&
+        window.matchMedia("(prefers-color-scheme: light)").matches;
+      stored = prefersLight ? "day" : "night";
+    }
+    function apply(name) {
+      if (list.indexOf(name) === -1) name = "night";
+      root.setAttribute("data-theme", name);
+      var meta = $('meta[name="theme-color"]');
+      if (meta) meta.setAttribute("content", THEME_COLORS[name] || THEME_COLORS.night);
+      buttons.forEach(function (btn) {
+        btn.setAttribute("aria-pressed", String(btn.getAttribute("data-theme-set") === name));
+      });
+      store.set(KEY.theme, name);
+    }
+    buttons.forEach(function (btn) {
+      btn.addEventListener("click", function () { apply(btn.getAttribute("data-theme-set")); });
+    });
+    apply(stored);
+    return { apply: apply, list: list };
+  }
+
+  /* --------------------------------------------------------------- progress */
+  function initProgress() {
+    var bar = $("#progress-bar");
+    var toTop = $("#to-top");
+    if (!bar) return;
+    var queued = false;
+    function update() {
+      queued = false;
+      var top = window.pageYOffset || root.scrollTop || doc.body.scrollTop || 0;
+      var max = root.scrollHeight - window.innerHeight;
+      var pct = max > 0 ? Math.max(0, Math.min(100, (top / max) * 100)) : 0;
+      bar.style.setProperty("--p", pct.toFixed(2) + "%");
+      if (toTop) toTop.classList.toggle("is-visible", top > 640);
+    }
+    function queue() {
+      if (!queued) { queued = true; window.requestAnimationFrame(update); }
+    }
+    window.addEventListener("scroll", queue, { passive: true });
+    window.addEventListener("resize", queue, { passive: true });
+    update();
+  }
+
+  /* ---------------------------------------------------- table of contents */
+  function initToc() {
+    var toc = $("#toc");
+    if (!toc) return { refresh: function () {} };
+    var links = $$("a[data-target]", toc);
+    var items = $$("li.toc__item", toc);
+    var parts = $$("li.toc__part", toc);
+    var input = $("#toc-filter");
+    var clearBtn = $("#toc-clear");
+    var status = $("#toc-status");
+    var empty = $("#toc-empty");
+    var banner = $("#filter-banner");
+    var bannerText = $("#filter-banner-text");
+    var total = items.length;
+    var active = null;
+
+    function sectionFor(link) {
+      return doc.getElementById(link.getAttribute("data-target"));
+    }
+    function visible(el) {
+      return !!el && !el.classList.contains("is-filtered-out");
+    }
+
+    function setActive(id) {
+      if (active === id) return;
+      active = id;
+      links.forEach(function (l) {
+        var on = l.getAttribute("data-target") === id;
+        l.classList.toggle("is-active", on);
+        if (on) l.setAttribute("aria-current", "location");
+        else l.removeAttribute("aria-current");
+      });
+      var link = links.filter(function (l) { return l.getAttribute("data-target") === id; })[0];
+      if (link && toc.scrollHeight > toc.clientHeight + 4) {
+        var lr = link.getBoundingClientRect();
+        var tr = toc.getBoundingClientRect();
+        if (lr.top < tr.top || lr.bottom > tr.bottom) {
+          toc.scrollTop += lr.top - tr.top - tr.height / 3;
+        }
+      }
+    }
+
+    var spyQueued = false;
+    function spy() {
+      spyQueued = false;
+      var line = (window.pageYOffset || root.scrollTop || 0) + headerOffset() + 8;
+      var best = null;
+      for (var i = 0; i < links.length; i += 1) {
+        var sec = sectionFor(links[i]);
+        if (!visible(sec)) continue;
+        if (sec.offsetTop <= line) best = links[i].getAttribute("data-target");
+        else break;
+      }
+      if (best) setActive(best);
+    }
+    function queueSpy() {
+      if (!spyQueued) { spyQueued = true; window.requestAnimationFrame(spy); }
+    }
+    window.addEventListener("scroll", queueSpy, { passive: true });
+    window.addEventListener("resize", queueSpy, { passive: true });
+
+    function haystack(el) {
+      var extra = el.getAttribute("data-search") || "";
+      return (el.textContent + " " + extra).toLowerCase().replace(/\s+/g, " ");
+    }
+
+    function applyFilter(rawQuery) {
+      var q = (rawQuery || "").toLowerCase().replace(/\s+/g, " ").trim();
+      var shown = 0;
+      if (clearBtn) clearBtn.classList.toggle("is-visible", q.length > 0);
+      items.forEach(function (item) {
+        var subs = $$("li.toc__sub, li.toc__subsub", item);
+        var ownLink = item.querySelector(":scope > a.toc__link") ||
+          item.querySelector("a.toc__link");
+        var self = ownLink ? haystack(ownLink) : haystack(item);
+        var selfHit = q === "" || self.indexOf(q) !== -1;
+        var subHits = subs.filter(function (s) { return q !== "" && haystack(s).indexOf(q) !== -1; });
+        var isShown = q === "" || selfHit || subHits.length > 0;
+        item.classList.toggle("is-hidden", !isShown);
+        if (isShown) shown += 1;
+        subs.forEach(function (s) {
+          var hit = q === "" || selfHit || haystack(s).indexOf(q) !== -1;
+          s.classList.toggle("is-hidden", !hit);
+        });
+        var sec = doc.getElementById(item.getAttribute("data-section") || "");
+        if (sec) sec.classList.toggle("is-filtered-out", q !== "" && !isShown);
+      });
+      parts.forEach(function (part) {
+        var any = $$("li.toc__item", part).some(function (i) { return !i.classList.contains("is-hidden"); });
+        part.classList.toggle("is-hidden", !any);
+      });
+      if (empty) empty.classList.toggle("is-visible", shown === 0);
+      if (status) {
+        status.textContent = q === ""
+          ? total + " sections"
+          : shown + " of " + total + " sections match";
+      }
+      if (banner) {
+        var hidden = total - shown;
+        banner.classList.toggle("is-visible", q !== "" && hidden > 0);
+        if (bannerText) {
+          bannerText.textContent = q === ""
+            ? ""
+            : "Filtering by \u201C" + rawQuery.trim() + "\u201D \u2014 " + hidden + " section" +
+              (hidden === 1 ? "" : "s") + " hidden.";
+        }
+      }
+      spy();
+    }
+
+    if (input) {
+      var timer = null;
+      input.addEventListener("input", function () {
+        window.clearTimeout(timer);
+        timer = window.setTimeout(function () { applyFilter(input.value); }, 120);
+      });
+      input.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") {
+          input.value = "";
+          applyFilter("");
+        }
+      });
+    }
+    if (clearBtn) {
+      clearBtn.addEventListener("click", function () {
+        if (input) { input.value = ""; input.focus(); }
+        applyFilter("");
+      });
+    }
+    var bannerClear = $("#filter-clear");
+    if (bannerClear) {
+      bannerClear.addEventListener("click", function () {
+        if (input) input.value = "";
+        applyFilter("");
+      });
+    }
+
+    /* off-canvas drawer */
+    var sidebar = $("#sidebar");
+    var toggle = $("#toc-toggle");
+    var scrim = $("#scrim");
+    function setDrawer(open) {
+      if (!sidebar) return;
+      sidebar.classList.toggle("is-open", open);
+      if (scrim) scrim.classList.toggle("is-visible", open);
+      if (toggle) toggle.setAttribute("aria-expanded", String(open));
+    }
+    if (toggle) {
+      toggle.addEventListener("click", function () {
+        setDrawer(!sidebar.classList.contains("is-open"));
+      });
+    }
+    if (scrim) scrim.addEventListener("click", function () { setDrawer(false); });
+    links.forEach(function (link) {
+      link.addEventListener("click", function () { setDrawer(false); });
+    });
+    doc.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") setDrawer(false);
+    });
+
+    applyFilter("");
+    spy();
+    return { refresh: spy, filter: applyFilter };
+  }
+
+  /* ------------------------------------------------------------ code copy */
+  function copyText(text) {
+    function legacy() {
+      var area = doc.createElement("textarea");
+      area.value = text;
+      area.setAttribute("readonly", "");
+      area.style.position = "fixed";
+      area.style.top = "-1000px";
+      doc.body.appendChild(area);
+      area.select();
+      var ok = false;
+      try { ok = doc.execCommand("copy"); } catch (err) { ok = false; }
+      doc.body.removeChild(area);
+      return ok;
+    }
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(text)
+        .then(function () { return true; })
+        .catch(function () { return legacy(); });
+    }
+    return Promise.resolve(legacy());
+  }
+
+  function initCode() {
+    $$(".code").forEach(function (figure) {
+      var button = $(".code__copy", figure);
+      var code = $(".code__pre code", figure);
+      var status = $("[data-copy-status]", figure);
+      if (!button || !code) return;
+      var label = $("span", button) || button;
+      var original = label.textContent;
+      button.addEventListener("click", function () {
+        copyText(code.textContent).then(function (ok) {
+          label.textContent = ok ? "Copied" : "Select & copy";
+          button.classList.toggle("is-copied", ok);
+          if (status) status.textContent = ok ? "Copied to clipboard" : "Copy failed";
+          window.setTimeout(function () {
+            label.textContent = original;
+            button.classList.remove("is-copied");
+          }, 1700);
+        });
+      });
+    });
+  }
+
+  /* ----------------------------------------------------------- checklists */
+  function initChecklists() {
+    $$("[data-checklist]").forEach(function (container) {
+      var boxes = $$('input[type="checkbox"]', container);
+      if (!boxes.length) return;
+      var key = KEY.checklist + "." + container.getAttribute("data-checklist");
+      var progress = $("progress", container);
+      var count = $(".checklist__count", container);
+      var live = $("[data-checklist-live]", container);
+      var saved = null;
+      try { saved = JSON.parse(store.get(key, "null")); } catch (err) { saved = null; }
+      if (Object.prototype.toString.call(saved) === "[object Array]") {
+        boxes.forEach(function (box, i) { box.checked = saved[i] === true; });
+      }
+      function sync(announce) {
+        var done = 0;
+        boxes.forEach(function (box) {
+          if (box.checked) done += 1;
+          var li = box.parentNode.parentNode;
+          if (li && li.tagName === "LI") li.classList.toggle("is-done", box.checked);
+        });
+        if (progress) {
+          progress.setAttribute("max", String(boxes.length));
+          progress.value = done;
+        }
+        if (count) count.textContent = done + " / " + boxes.length + " done";
+        store.set(key, JSON.stringify(boxes.map(function (box) { return box.checked; })));
+        if (announce && live) live.textContent = done + " of " + boxes.length + " complete";
+      }
+      boxes.forEach(function (box) {
+        box.addEventListener("change", function () { sync(true); });
+      });
+      var reset = $("[data-checklist-reset]", container);
+      if (reset) {
+        reset.addEventListener("click", function () {
+          boxes.forEach(function (box) { box.checked = false; });
+          sync(true);
+        });
+      }
+      sync(false);
+    });
+  }
+
+  /* ----------------------------------------------------------------- tabs */
+  function initTabs() {
+    $$(".tabs").forEach(function (tabs) {
+      var tabList = $$('[role="tab"]', tabs);
+      var panels = $$('[role="tabpanel"]', tabs);
+      if (!tabList.length) return;
+      function select(index, focus) {
+        tabList.forEach(function (tab, i) {
+          var on = i === index;
+          tab.setAttribute("aria-selected", String(on));
+          tab.tabIndex = on ? 0 : -1;
+          if (panels[i]) panels[i].hidden = !on;
+          if (on && focus) tab.focus();
+        });
+      }
+      tabList.forEach(function (tab, i) {
+        tab.addEventListener("click", function () { select(i, false); });
+        tab.addEventListener("keydown", function (event) {
+          var next = null;
+          if (event.key === "ArrowRight") next = (i + 1) % tabList.length;
+          else if (event.key === "ArrowLeft") next = (i - 1 + tabList.length) % tabList.length;
+          else if (event.key === "Home") next = 0;
+          else if (event.key === "End") next = tabList.length - 1;
+          if (next !== null) {
+            event.preventDefault();
+            select(next, true);
+          }
+        });
+      });
+      select(0, false);
+    });
+  }
+
+  /* ------------------------------------------------------- sortable tables */
+  function cellText(row, index) {
+    var cell = row.children[index];
+    return cell ? cell.textContent.replace(/\s+/g, " ").trim() : "";
+  }
+  function initTables() {
+    $$("table.data-table").forEach(function (table) {
+      var headers = $$("thead th", table);
+      var body = $("tbody", table);
+      if (!body) return;
+      headers.forEach(function (th) {
+        var button = $("button.th-sort", th);
+        if (!button) return;
+        button.addEventListener("click", function () {
+          var index = headers.indexOf(th);
+          var dir = button.getAttribute("data-dir") === "asc" ? "desc" : "asc";
+          headers.forEach(function (other) {
+            var otherButton = $("button.th-sort", other);
+            if (otherButton) otherButton.removeAttribute("data-dir");
+            other.removeAttribute("aria-sort");
+          });
+          button.setAttribute("data-dir", dir);
+          th.setAttribute("aria-sort", dir === "asc" ? "ascending" : "descending");
+          var rows = $$("tr", body);
+          var numeric = rows.length > 0 && rows.every(function (row) {
+            return /^[~$\u20ac\u00a3]?\s*[\d.,]+\s*%?$/.test(cellText(row, index));
+          });
+          rows.sort(function (a, b) {
+            var av = cellText(a, index);
+            var bv = cellText(b, index);
+            if (numeric) {
+              return (parseFloat(av.replace(/[^0-9.]/g, "")) || 0) -
+                (parseFloat(bv.replace(/[^0-9.]/g, "")) || 0);
+            }
+            return av.localeCompare(bv, undefined, { numeric: true, sensitivity: "base" });
+          });
+          if (dir === "desc") rows.reverse();
+          rows.forEach(function (row) { body.appendChild(row); });
+        });
+      });
+    });
+  }
+
+  /* -------------------------------------------------- source-marker toggle */
+  function initCites() {
+    var button = $("#cites-toggle");
+    function apply(on) {
+      doc.body.setAttribute("data-cites", on ? "on" : "off");
+      if (button) button.setAttribute("aria-pressed", String(on));
+      store.set(KEY.cites, on ? "on" : "off");
+    }
+    if (button) {
+      button.addEventListener("click", function () {
+        apply(doc.body.getAttribute("data-cites") !== "on");
+      });
+    }
+    apply(store.get(KEY.cites, "on") !== "off");
+  }
+
+  /* ---------------------------------------------------- details + printing */
+  function expandAll(open) {
+    $$("details").forEach(function (detail) { detail.open = open; });
+  }
+  function initDetails() {
+    $$("[data-expand-all]").forEach(function (button) {
+      button.addEventListener("click", function () { expandAll(true); });
+    });
+    $$("[data-collapse-all]").forEach(function (button) {
+      button.addEventListener("click", function () { expandAll(false); });
+    });
+    window.addEventListener("beforeprint", function () {
+      $$("details").forEach(function (detail) {
+        if (!detail.open) { detail.setAttribute("data-was-closed", "1"); detail.open = true; }
+      });
+    });
+    window.addEventListener("afterprint", function () {
+      $$('details[data-was-closed="1"]').forEach(function (detail) {
+        detail.open = false;
+        detail.removeAttribute("data-was-closed");
+      });
+    });
+    $$("[data-print]").forEach(function (button) {
+      button.addEventListener("click", function () { window.print(); });
+    });
+  }
+
+  /* ------------------------------------------------------------ shortcuts */
+  function initShortcuts(themeCtl) {
+    var dialog = $("#help-dialog");
+    function openDialog() {
+      if (!dialog) return;
+      if (typeof dialog.showModal === "function") {
+        if (!dialog.open) dialog.showModal();
+      } else {
+        dialog.setAttribute("open", "");
+      }
+    }
+    function closeDialog() {
+      if (!dialog) return;
+      if (typeof dialog.close === "function") dialog.close();
+      else dialog.removeAttribute("open");
+    }
+    $$("[data-help-open]").forEach(function (button) {
+      button.addEventListener("click", openDialog);
+    });
+    $$("[data-help-close]").forEach(function (button) {
+      button.addEventListener("click", closeDialog);
+    });
+    if (dialog) {
+      dialog.addEventListener("click", function (event) {
+        if (event.target === dialog) closeDialog();
+      });
+    }
+    doc.addEventListener("keydown", function (event) {
+      var target = event.target;
+      var typing = target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" ||
+        target.tagName === "SELECT" || target.isContentEditable);
+      if (typing || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.key === "/") {
+        var filter = $("#toc-filter");
+        if (filter) { event.preventDefault(); filter.focus(); filter.select(); }
+      } else if (event.key === "?") {
+        event.preventDefault();
+        openDialog();
+      } else if (event.key === "t" && themeCtl) {
+        var current = root.getAttribute("data-theme");
+        var index = themeCtl.list.indexOf(current);
+        themeCtl.apply(themeCtl.list[(index + 1) % themeCtl.list.length]);
+      } else if (event.key === "Escape") {
+        closeDialog();
+      }
+    });
+  }
+
+  /* ------------------------------------------------------- cost calculator */
+  function initCalc() {
+    var container = $("#cost-calculator");
+    if (!container) return;
+    var ranges = $$('input[type="range"]', container);
+    var plans = $$('input[name="claude-plan"]', container);
+    var goCost = 10;
+    function money(value) { return "$" + Math.round(value); }
+    function update() {
+      var total = goCost;
+      ranges.forEach(function (range) {
+        var value = Number(range.value) || 0;
+        total += value;
+        range.style.setProperty("--fill", range.value + "%");
+        var field = range.closest(".calc__field");
+        var out = field ? $("output", field) : null;
+        if (out) out.textContent = money(value);
+        range.setAttribute("aria-valuetext", money(value) + " per month");
+      });
+      var plan = 20;
+      plans.forEach(function (radio) { if (radio.checked) plan = Number(radio.value); });
+      var stackOut = $("#calc-stack");
+      var planOut = $("#calc-claude");
+      var gapOut = $("#calc-gap");
+      var pctOut = $("#calc-pct");
+      var cheaper = plan >= total;
+      if (stackOut) stackOut.textContent = money(total);
+      if (planOut) planOut.textContent = money(plan);
+      if (gapOut) {
+        gapOut.textContent = (cheaper ? "\u2212" : "+") + money(Math.abs(plan - total));
+        var box = gapOut.parentNode;
+        if (box) {
+          box.setAttribute("data-cheaper", cheaper ? "yes" : "no");
+          box.style.setProperty("--out-color", cheaper ? "var(--tn-green)" : "var(--tn-red)");
+        }
+      }
+      if (pctOut) {
+        var pct = plan > 0 ? Math.round((1 - total / plan) * 100) : 0;
+        pctOut.textContent = (pct > 0 ? pct : 0) + "%";
+      }
+      var busiest = Math.max(total, plan, 1);
+      var stackBar = $("#calc-bar-stack");
+      var planBar = $("#calc-bar-claude");
+      if (stackBar) stackBar.style.setProperty("--w", ((total / busiest) * 100).toFixed(1) + "%");
+      if (planBar) planBar.style.setProperty("--w", ((plan / busiest) * 100).toFixed(1) + "%");
+    }
+    ranges.forEach(function (range) { range.addEventListener("input", update); });
+    plans.forEach(function (radio) { radio.addEventListener("change", update); });
+    update();
+  }
+
+  /* ------------------------------------------------------ syntax highlight */
+  function initHighlight() {
+    var blocks = $$(".code__pre code");
+    if (window.hljs && typeof window.hljs.highlightElement === "function") {
+      blocks.forEach(function (block) {
+        try { window.hljs.highlightElement(block); } catch (err) { /* keep plain text */ }
+      });
+    }
+  }
+
+  /* ------------------------------------------------------------- bootstrap */
+  function boot() {
+    var themeCtl = initTheme();
+    initProgress();
+    initToc();
+    initCode();
+    initChecklists();
+    initTabs();
+    initTables();
+    initCites();
+    initDetails();
+    initShortcuts(themeCtl);
+    initCalc();
+    return themeCtl;
+  }
+
+  /* Syntax highlighting needs highlight.js, which is loaded with `defer`, so it
+     is picked up once the document has finished parsing. Everything else is
+     wired up immediately: this script sits at the end of <body>, so the whole
+     document is already available and the theme indicator never lags the theme. */
+  function highlightWhenReady() {
+    if (window.hljs) initHighlight();
+    else window.addEventListener("load", initHighlight, { once: true });
+  }
+
+  if (doc.readyState === "loading") {
+    boot();
+    doc.addEventListener("DOMContentLoaded", highlightWhenReady);
+  } else {
+    boot();
+    highlightWhenReady();
+  }
+})();
+
+</script>
+</body>
+</html>

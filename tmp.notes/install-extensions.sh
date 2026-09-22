@@ -1,0 +1,12 @@
+codium --install-extension bearylabs.doom
+codium --install-extension catppuccin.catppuccin-vsc
+codium --install-extension charliermarsh.ruff
+codium --install-extension james-yu.latex-workshop
+codium --install-extension kahole.magit
+codium --install-extension ltex-plus.vscode-ltex-plus
+codium --install-extension ms-python.python
+codium --install-extension ms-python.vscode-pylance
+codium --install-extension ms-toolsai.jupyter
+codium --install-extension vscodevim.vim
+codium --install-extension vspacecode.vspacecode
+codium --install-extension vspacecode.whichkey

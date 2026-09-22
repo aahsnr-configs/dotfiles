@@ -1,0 +1,452 @@
+* TODO Completion Framework
+** TODO Orderless
+Provides flexible, multi-component fuzzy matching for minibuffer and in-buffer completions.
+#+begin_src emacs-lisp
+(use-package orderless
+  :custom
+  ;; Global completion styles with =basic= as a dynamic fallback.
+  (completion-styles '(orderless basic))
+  ;; Disables default category overrides to prevent external style injection.
+  (completion-category-defaults nil)
+  ;; Emacs 31+: Enables substring-like behavior for partial-completion.
+  (completion-pcm-leading-wildcard t)
+  ;; Strict global matching styles, omitting flex and initialism for performance.
+  (orderless-matching-styles '(orderless-regexp orderless-literal))
+  :config
+  ;; Consolidates all category routing into a single alist to prevent
+  ;; Elpaca async load-order overwrites from fragmented =add-to-list= calls.
+  (setq completion-category-overrides
+        `((file (styles basic partial-completion orderless))
+          (eglot (styles ,@completion-styles))
+          (eglot-capf (styles ,@completion-styles))))
+  ;; Explicit affix dictionary for predictable Vim-like dispatch routing.
+  (setq orderless-affix-dispatch-alist
+        `((?! . orderless-without-literal)
+          (?= . orderless-literal)
+          (?% . orderless-initialism)
+          (?~ . orderless-flex)
+          (?, . orderless-literal-prefix)
+          (?& . ,(if (fboundp 'orderless-annotation)
+                     'orderless-annotation
+                   'orderless-literal))))
+  ;; Handles Consult disambiguation suffixes and file extension matching.
+  (defun ar/orderless-disambiguation-dispatch (word _index _total)
+    "Handle disambiguation suffixes for Consult and file extensions."
+    (let ((tofu-re (if (boundp 'consult--tofu-regexp)
+                       (concat consult--tofu-regexp "*\\'")
+                     "\\'")))
+      (cond
+       ;; Exact end-of-string match for Consult commands.
+       ((string-suffix-p "$" word)
+        `(orderless-regexp . ,(concat (substring word 0 -1) tofu-re)))
+       ;; File extension matching in minibuffer and shell modes.
+       ((and (or minibuffer-completing-file-name
+                 (derived-mode-p 'eshell-mode))
+             (string-prefix-p "." word))
+        `(orderless-regexp . ,(concat "\\." (substring word 1) tofu-re))))))
+  ;; Chains the native affix dispatcher with the custom disambiguation dispatcher.
+  (setq orderless-style-dispatchers
+        '(orderless-affix-dispatch
+          ar/orderless-disambiguation-dispatch)))
+#+end_src
+
+** TODO Vertico
+Renders completion candidates in a vertical, interactive dropdown list.
+#+begin_src emacs-lisp
+(use-package vertico
+  :custom
+  ;; Reserves exactly 10 lines of vertical space for the dropdown.
+  (vertico-count 10)
+  ;; Disables dynamic resizing to prevent UI jumping.
+  (vertico-resize nil)
+  ;; Allows cycling from the bottom of the list back to the top.
+  (vertico-cycle t)
+  :bind (:map vertico-map
+              ;; Ido-like directory navigation.
+              ("RET" . vertico-directory-enter)
+              ("DEL" . vertico-directory-delete-char)
+              ("M-DEL" . vertico-directory-delete-word)
+              ;; Group navigation via arrow keys.
+              ("C-<down>" . vertico-next-group)
+              ("C-<up>" . vertico-previous-group)
+              ;; Avy-style minibuffer jumps.
+              ("M-q" . vertico-quick-jump)
+              ("M-Q" . vertico-quick-exit)
+              ("M-i" . vertico-quick-insert))
+  :hook (;; Cleans up shadowed directory paths.
+         (rfn-eshadow-update-overlay . vertico-directory-tidy)
+         ;; Saves minibuffer state for session recovery.
+         (minibuffer-setup . vertico-repeat-save))
+  :config
+  ;; Prevents cursor wandering behind the read-only prompt text.
+  (setq minibuffer-prompt-properties
+        '(read-only t cursor-intangible t face minibuffer-prompt))
+  (add-hook 'minibuffer-setup-hook #'cursor-intangible-mode)
+  ;; Allows opening a minibuffer inside a minibuffer.
+  (setq enable-recursive-minibuffers t)
+  ;; Displays depth indicator for nested recursive minibuffers.
+  (minibuffer-depth-indicate-mode 1)
+  ;; Activates the core Vertico engine post-load.
+  (vertico-mode 1)
+  ;; Activates the multiform extension mode.
+  (vertico-multiform-mode 1)
+  ;; Context-aware UI rules per command.
+  (setq vertico-multiform-commands
+        '((consult-imenu buffer)
+          (consult-outline buffer)
+          (consult-line-multi buffer)
+          (consult-yasnippet grid)))
+  ;; Dynamically applies text properties to candidates based on category.
+  (defvar +vertico-transform-functions nil)
+  (cl-defmethod vertico--format-candidate :around
+    (cand prefix suffix index start &context ((not +vertico-transform-functions) null))
+    (dolist (fun (ensure-list +vertico-transform-functions))
+      (setq cand (funcall fun cand)))
+    (cl-call-next-method cand prefix suffix index start))
+  ;; Highlights directories with a trailing slash.
+  (defun +vertico-highlight-directory-fn (file)
+    "Highlight FILE as a directory if it ends with a slash."
+    (when (string-suffix-p "/" file)
+      (add-face-text-property 0 (length file) 'dired-directory 'append file))
+    file)
+  ;; Highlights enabled modes in M-x.
+  (defun +vertico-highlight-enabled-mode-fn (cmd)
+    "Highlight CMD if the corresponding mode is enabled."
+    (let ((sym (intern cmd)))
+      (with-current-buffer (nth 1 (buffer-list))
+        (if (or (eq sym major-mode)
+                (and (memq sym minor-mode-list)
+                     (boundp sym)
+                     (symbol-value sym)))
+            (add-face-text-property 0 (length cmd) 'font-lock-constant-face 'append cmd)))
+      cmd))
+  ;; Applies directory highlighting to the file category.
+  (add-to-list 'vertico-multiform-categories
+               '(file (+vertico-transform-functions . +vertico-highlight-directory-fn)))
+  ;; Applies mode highlighting to M-x.
+  (add-to-list 'vertico-multiform-commands
+               '(execute-extended-command (+vertico-transform-functions . +vertico-highlight-enabled-mode-fn)))
+  ;; Renders Embark's action menu as a searchable grid.
+  (add-to-list 'vertico-multiform-categories '(embark-keybinding grid))
+  ;; Remaps C-s to fuzzy-search minibuffer input history.
+  (defvar ar/minibuffer-maps
+    '(minibuffer-local-map
+      minibuffer-local-ns-map
+      minibuffer-local-completion-map
+      minibuffer-local-must-match-map
+      minibuffer-local-isearch-map
+      read-expression-map)
+    "List of minibuffer keymaps.")
+  (with-eval-after-load 'consult
+    (dolist (keymap ar/minibuffer-maps)
+      (define-key (symbol-value keymap) (kbd "C-s") #'consult-history))))
+#+end_src
+
+** TODO Marginalia
+Appends rich metadata annotations to completion candidates.
+#+begin_src emacs-lisp
+(use-package marginalia
+  :hook (after-init . marginalia-mode)
+  :config
+  ;; Forces absolute timestamps for mathematical precision.
+  (setq marginalia-max-relative-age 0
+        ;; Aligns annotations to the right edge of the minibuffer.
+        marginalia-align 'right))
+#+end_src
+
+** TODO Nerd Icons Completion
+Injects visual file and mode glyphs into completion annotations.
+#+begin_src emacs-lisp
+(use-package nerd-icons-completion
+  :after marginalia
+  :config
+  (nerd-icons-completion-mode)
+  (add-hook 'marginalia-mode-hook #'nerd-icons-completion-marginalia-setup))
+#+end_src
+
+** TODO Consult
+Supplies async search, navigation, and preview commands for the completion framework.
+#+begin_src emacs-lisp
+(use-package consult
+  :bind (;; Buffer switching
+         ([remap switch-to-buffer] . consult-buffer)
+         ([remap switch-to-buffer-other-window] . consult-buffer-other-window)
+         ([remap switch-to-buffer-other-frame] . consult-buffer-other-frame)
+         ([remap project-switch-to-buffer] . consult-project-buffer)
+         ;; Navigation
+         ([remap goto-line] . consult-goto-line)
+         ([remap imenu] . consult-imenu)
+         ([remap yank-pop] . consult-yank-pop)
+         ([remap bookmark-jump] . consult-bookmark))
+  :hook (completion-list-mode . consult-preview-at-point-mode)
+  :init
+  ;; Improves register preview with Consult formatting.
+  (setq register-preview-delay 0.5
+        register-preview-function #'consult-register-format)
+  (advice-add #'register-preview :override #'consult-register-window)
+  ;; Routes xref locations through Consult's preview engine.
+  (setq xref-show-xrefs-function #'consult-xref
+        xref-show-definitions-function #'consult-xref)
+  :config
+  ;; Starts consult-line from the top of the buffer.
+  (setq consult-line-start-from-top t)
+  ;; Configures hidden files and .git exclusion for ripgrep and find.
+  (setq consult-ripgrep-args "rg --null --line-buffered --color=never --max-columns=1000 --path-separator / --smart-case --no-heading --line-number --hidden --glob '!.git'"
+        consult-find-args "find . -not -path '*/.git/*'")
+  ;; Allows hl-todo-mode during live previews.
+  (with-eval-after-load 'hl-todo
+    (add-to-list 'consult-preview-allowed-hooks 'hl-todo-mode)
+    (add-to-list 'consult-preview-allowed-hooks 'global-hl-todo-mode))
+  ;; Configures preview debouncing per command category.
+  (consult-customize
+   consult-line consult-line-multi consult-imenu consult-imenu-multi
+   :preview-key 'any
+   consult-theme
+   :preview-key '(:debounce 0.2 any)
+   consult-buffer consult-recent-file
+   :preview-key '(:debounce 0.4 any)
+   consult-ripgrep consult-git-grep consult-grep consult-find consult-fd
+   :preview-key '(:debounce 0.4 any)
+   consult-goto-line consult-mark consult-global-mark
+   consult-outline consult-bookmark
+   :preview-key '(:debounce 0.4 any))
+  ;; Configures narrowing key and help binding.
+  (setq consult-narrow-key "<")
+  (define-key consult-narrow-map (vconcat consult-narrow-key "?") #'consult-narrow-help))
+#+end_src
+
+** TODO Consult Dir
+Extends directory navigation with spatial jumping and async file discovery.
+#+begin_src emacs-lisp
+(use-package consult-dir
+  :defer t
+  :custom
+  ;; Routes async directory jumps to consult-fd for faster discovery.
+  (consult-dir-jump-file-command #'consult-fd))
+#+end_src
+
+** TODO Embark
+Provides context-aware action menus for minibuffer candidates and buffer targets.
+#+begin_src emacs-lisp
+(use-package embark
+  :bind
+  ;; Global and minibuffer bindings for Embark actions.
+  (("C-;" . embark-act)
+   ([remap describe-bindings] . embark-bindings)
+   :map minibuffer-local-map
+   ("C-;" . embark-act)
+   ("C-c C-;" . embark-export)
+   ("C-c C-l" . embark-collect))
+  :init
+  (setq which-key-use-C-h-commands nil
+        prefix-help-command #'embark-prefix-help-command)
+  :config
+  ;; Hides the mode-line in Embark Collect buffers.
+  (add-to-list 'display-buffer-alist
+               '("\\`\\*Embark Collect \\(Live\\|Completions\\)\\*"
+                 nil
+                 (window-parameters (mode-line-format . none))))
+  ;; Configures minimal and highlight indicators.
+  (setq embark-indicators
+        '(embark-minimal-indicator
+          embark-highlight-indicator
+          embark-isearch-highlight-indicator)))
+#+end_src
+
+** TODO Embark Consult
+Bridges Embark collections with Consult's live preview engine.
+#+begin_src emacs-lisp
+(use-package embark-consult
+  :defer t
+  :after (embark consult)
+  :hook
+  ;; Enables live preview in Embark Collect buffers from Consult searches.
+  (embark-collect-mode . consult-preview-at-point-mode))
+#+end_src
+
+** TODO Embark Org
+Injects Org-mode specific targets and actions into the Embark framework.
+#+begin_src emacs-lisp
+(use-package embark-org
+  :ensure nil
+  :after (embark org))
+#+end_src
+
+** TODO Corfu
+Renders in-buffer completion candidates in a minimal, unobtrusive popup.
+#+begin_src emacs-lisp
+(use-package corfu
+  :custom
+  ;; Confines Corfu strictly to buffer editing, disabling minibuffer activation.
+  (global-corfu-minibuffer nil)
+  (corfu-cycle t)
+  (corfu-auto t)
+  (corfu-quit-at-boundary 'separator)
+  (corfu-quit-no-match 'separator)
+  (corfu-count 16)
+  (corfu-max-width 120)
+  ;; Preselects the prompt to prevent accidental candidate commits.
+  (corfu-preselect 'prompt)
+  (corfu-on-exact-match nil)
+  ;; Delays auto-completion to prevent GC stutter with Orderless.
+  (corfu-auto-delay 0.2)
+  (corfu-auto-prefix 2)
+  (global-corfu-modes '((not erc-mode
+                             eshell-mode
+                             circe-mode
+                             help-mode
+                             gud-mode
+                             vterm-mode
+                             ghostel-mode
+                             ghostel-compile-view-mode)
+                        t))
+  :custom-face
+  (corfu-border ((t (:inherit region :background unspecified))))
+  :bind (:map corfu-map
+              ("TAB"       . corfu-next)
+              ("<tab>"     . corfu-next)
+              ("S-TAB"     . corfu-previous)
+              ("<backtab>" . corfu-previous)
+              ("RET"       . corfu-insert)
+              ("<escape>"  . corfu-quit))
+  :config
+  ;; Activates the global Corfu engine post-load.
+  (global-corfu-mode 1)
+  ;; Closes the popup on insert state exit or buffer save.
+  (add-hook 'evil-insert-state-exit-hook #'corfu-quit)
+  (add-hook 'before-save-hook #'corfu-quit))
+
+;; Bundled extensions isolated for load-order safety.
+(use-package corfu-history
+  :ensure nil
+  :after corfu
+  :config
+  (corfu-history-mode 1)
+  (with-eval-after-load 'savehist
+    (add-to-list 'savehist-additional-variables 'corfu-history)))
+
+(use-package corfu-popupinfo
+  :ensure nil
+  :after corfu
+  :bind (:map corfu-map
+              ;; Toggles the documentation popup manually.
+              ("M-h" . corfu-popupinfo-toggle))
+  :config
+  (corfu-popupinfo-mode 1)
+  ;; Disables automatic hover trigger to prevent UI flicker.
+  (setq corfu-popupinfo-delay nil))
+
+(use-package corfu-quick
+  :ensure nil
+  :after corfu
+  :bind (:map corfu-map
+              ;; Avy-style candidate selection.
+              ("M-q" . corfu-quick-insert)
+              ("M-Q" . corfu-quick-complete)))
+#+end_src
+
+** TODO Basic Completion
+Configures native Emacs completion styles and indentation triggers.
+#+begin_src emacs-lisp
+(use-package emacs
+  :ensure nil
+  :custom
+  ;; Triggers completion-at-point if the line is already indented.
+  (tab-always-indent 'complete)
+  ;; Disables synchronous Ispell dictionary lookup in text modes.
+  (text-mode-ispell-word-completion nil)
+  ;; Filters M-x candidates to commands compatible with the current major mode.
+  (read-extended-command-predicate #'command-completion-default-include-p))
+#+end_src
+
+** TODO Nerd Icons Corfu
+Appends visual glyphs to in-buffer completion candidates.
+#+begin_src emacs-lisp
+(use-package nerd-icons-corfu
+  :after corfu
+  :init
+  ;; Registers the formatter with Corfu's margin API pre-load.
+  (add-to-list 'corfu-margin-formatters #'nerd-icons-corfu-formatter))
+#+end_src
+
+** TODO Cape
+Wraps and merges completion-at-point functions for global and local pipelines.
+#+begin_src emacs-lisp
+(use-package cape
+  :bind ("C-c p" . cape-prefix-map)
+  :init
+  ;; Injects Elisp completion inside Org and Markdown source blocks.
+  (add-hook 'completion-at-point-functions #'cape-elisp-block)
+  ;; Confines file completion strictly to string literals globally.
+  (add-hook 'completion-at-point-functions (cape-capf-inside-string #'cape-file))
+  ;; Requires a 2-character prefix for Dabbrev to prevent UI spam.
+  (setq cape-dabbrev-check-other-buffers t)
+  (add-hook 'completion-at-point-functions (cape-capf-prefix-length #'cape-dabbrev 2))
+  :config
+  ;; Injects history completion into Comint and minibuffer environments.
+  (add-hook 'comint-mode-hook
+            (lambda () (add-hook 'completion-at-point-functions #'cape-history nil t)))
+  (add-hook 'minibuffer-setup-hook
+            (lambda () (add-hook 'completion-at-point-functions #'cape-history nil t)))
+  ;; Enables unwrapped file completion locally for shell scripts.
+  (add-hook 'sh-mode-hook
+            (lambda () (add-hook 'completion-at-point-functions #'cape-file nil t)))
+  (add-hook 'bash-ts-mode-hook
+            (lambda () (add-hook 'completion-at-point-functions #'cape-file nil t)))
+  ;; Shields Eglot from quit signals, busts cache for Orderless, and enables merging.
+  (with-eval-after-load 'eglot
+    (advice-add #'eglot-completion-at-point :around #'cape-wrap-buster)
+    (advice-add #'eglot-completion-at-point :around #'cape-wrap-noninterruptible)
+    (advice-add #'eglot-completion-at-point :around #'cape-wrap-nonexclusive))
+  ;; Applies non-exclusive merging to Comint and Pcomplete.
+  (advice-add #'comint-completion-at-point :around #'cape-wrap-nonexclusive)
+  (advice-add #'pcomplete-completions-at-point :around #'cape-wrap-nonexclusive))
+#+end_src
+
+** TODO Dabbrev
+Provides dynamic abbreviation expansion from open buffers.
+#+begin_src emacs-lisp
+(defcustom ar/dabbrev-buffer-scanning-size-limit (* 1 1024 1024)
+  "Size limit in characters for a buffer to be scanned by dabbrev."
+  :type 'integer
+  :group 'dabbrev)
+
+(defun ar/dabbrev-friend-buffer-p (other-buffer)
+  "Return non-nil if OTHER-BUFFER is safe and under the size limit."
+  (and (buffer-live-p other-buffer)
+       (< (buffer-size other-buffer) ar/dabbrev-buffer-scanning-size-limit)))
+
+(use-package dabbrev
+  :ensure nil
+  :bind (;; Swaps M-/ and C-M-/ for Corfu popup synergy.
+         ("M-/" . dabbrev-completion)
+         ("C-M-/" . dabbrev-expand))
+  :config
+  (setq dabbrev-friend-buffer-function #'ar/dabbrev-friend-buffer-p
+        dabbrev-upcase-means-case-search t
+        ;; Enables cross-buffer scanning to mirror cape-dabbrev.
+        dabbrev-check-other-buffers t)
+  ;; Ignores hidden and internal Emacs buffers.
+  (add-to-list 'dabbrev-ignored-buffer-regexps "\\` ")
+  ;; Ignores TAGS and generated index files.
+  (add-to-list 'dabbrev-ignored-buffer-regexps
+               "\\(?:\\(?:[EG]?\\|GR\\)TAGS\\|e?tags\\|GPATH\\)\\(<[0-9]+>\\)?")
+  ;; Excludes binary, terminal, and machine-generated output buffers.
+  (dolist (mode '(doc-view-mode
+                  pdf-view-mode
+                  dirvish-directory-view-mode
+                  vterm-mode
+                  term-mode
+                  eshell-mode
+                  ghostel-mode
+                  ghostel-compile-view-mode
+                  tags-table-mode
+                  authinfo-mode
+                  compilation-mode
+                  magit-status-mode
+                  magit-log-mode
+                  special-mode))
+    (add-to-list 'dabbrev-ignored-buffer-modes mode)))
+#+end_src
+
+

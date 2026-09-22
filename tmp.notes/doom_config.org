@@ -1,0 +1,380 @@
+** DONE Autorevert
+Synchronizes buffers with external disk modifications via native OS file notifications. Suppresses echo-area logging and avoids interval polling to eliminate I/O overhead.
+#+begin_src emacs-lisp
+(use-package autorevert
+  :straight (:type built-in)
+  :custom
+  (auto-revert-verbose nil)
+  (auto-revert-avoid-polling t)
+  :config
+  (global-auto-revert-mode 1))
+#+end_src
+
+
+** DONE Delete Pair
+Configures the native =delete-pair= engine and provides an O(1) DWIM wrapper for adjacent, string, and nested pair deletion, strictly confined to programming modes.
+#+begin_src emacs-lisp
+;; Emacs 28+: Visual blink delay before deletion.
+(setq delete-pair-blink-delay 0.1)
+
+;; Emacs 31+: Push mark before deletion for inner-text recovery.
+(when (boundp 'delete-pair-push-mark)
+  (setq delete-pair-push-mark t))
+
+(defun ar/delete-pair-dwim ()
+  "Intelligently delete the pair surrounding or preceding the cursor.
+Strictly confined to `prog-mode' to prevent structural destruction in prose."
+  (interactive)
+  (unless (derived-mode-p 'prog-mode)
+    (user-error "Delete Pair DWIM restricted to prog-mode; use `ds` in prose"))
+  (let ((prev (char-before))
+        (next (char-after))
+        (ppss (syntax-ppss)))
+    (cond
+     ;; Delete preceding closing delimiter or quote.
+     ((and prev (memq (char-syntax prev) '(?\) ?\" ?\|)))
+      (delete-pair -1))
+     ;; Delete following opening delimiter or quote.
+     ((and next (memq (char-syntax next) '(?\( ?\" ?\|)))
+      (delete-pair 1))
+     ;; Inside a string: jump to start, handle prefixes, and delete.
+     ((nth 3 ppss)
+      (let ((start (nth 8 ppss)))
+        (goto-char start)
+        ;; Handle string prefixes (e.g., f"..." in Python).
+        (unless (memq (char-after) '(?\" ?\|))
+          (forward-char 1))
+        (delete-pair 1)))
+     ;; Fallback: jump out of current list and delete enclosing pair.
+     (t
+      (condition-case nil
+          (progn
+            (backward-up-list)
+            (delete-pair 1))
+        (scan-error (user-error "Not inside a deletable pair")))))))
+#+end_src
+
+
+** DONE Blink Matching Paren
+Event-driven visual feedback upon closing delimiter insertion. Search limits are disabled to guarantee accuracy in massive buffers.
+#+begin_src emacs-lisp
+;; Preloaded `simple.el` variables; raw `setq` prevents startup latency.
+(setq blink-matching-paren t
+      blink-matching-paren-distance nil ; Unbounded search for deep AST blocks.
+      blink-matching-delay 0.1)         ; Prevents main-thread micro-stutters.
+
+;; Emacs 30+: Renders off-screen matches as buffer overlays, protecting the echo area.
+(when (boundp 'blink-matching-paren-highlight-offscreen)
+  (setq blink-matching-paren-highlight-offscreen t))
+#+end_src
+
+
+** DONE Custom Folding Functions
+Unified folding dispatcher routing to Tree-sitter, Outline, Hideshow, or Vimish Fold based on buffer context.
+#+begin_src emacs-lisp
+(defun ar/fold-toggle ()
+  "Toggle code fold at point using the best available folding engine."
+  (interactive)
+  (cond ((bound-and-true-p treesit-fold-mode) (treesit-fold-toggle))
+        ((bound-and-true-p outline-minor-mode) (outline-cycle))
+        ((bound-and-true-p hs-minor-mode)
+         ;; Emacs 31+: Prefer `hs-cycle` for intelligent visibility cycling.
+         (if (fboundp 'hs-cycle) (hs-cycle) (hs-toggle-hiding)))
+        ((fboundp 'vimish-fold-toggle)
+         (condition-case nil (vimish-fold-toggle)
+           (error (user-error "No foldable region at point"))))
+        (t (user-error "No foldable region at point"))))
+
+(defun ar/fold-open ()
+  "Open code fold at point."
+  (interactive)
+  (cond ((bound-and-true-p treesit-fold-mode) (treesit-fold-open))
+        ((bound-and-true-p outline-minor-mode) (outline-show-subtree))
+        ((bound-and-true-p hs-minor-mode) (hs-show-block))
+        ((fboundp 'vimish-fold-unfold) (vimish-fold-unfold))
+        (t (user-error "No foldable region at point"))))
+
+(defun ar/fold-close ()
+  "Close code fold at point."
+  (interactive)
+  (cond ((bound-and-true-p treesit-fold-mode) (treesit-fold-close))
+        ((bound-and-true-p outline-minor-mode) (outline-hide-subtree))
+        ((bound-and-true-p hs-minor-mode) (hs-hide-block))
+        (t (user-error "No foldable region at point"))))
+
+(defun ar/fold-open-all ()
+  "Open all code folds in the current buffer."
+  (interactive)
+  (cond ((bound-and-true-p treesit-fold-mode) (treesit-fold-open-all))
+        ((bound-and-true-p outline-minor-mode) (outline-show-all))
+        ((bound-and-true-p hs-minor-mode) (hs-show-all))
+        ((fboundp 'vimish-fold-delete-all) (vimish-fold-delete-all)))
+  (message "All folds opened"))
+
+(defun ar/fold-close-all ()
+  "Close all code folds in the current buffer."
+  (interactive)
+  (cond ((bound-and-true-p treesit-fold-mode) (treesit-fold-close-all))
+        ((bound-and-true-p outline-minor-mode) (outline-hide-body))
+        ((bound-and-true-p hs-minor-mode) (hs-hide-all)))
+  (message "All folds closed"))
+#+end_src
+
+** DONE Hideshow
+Folds code blocks in languages lacking Tree-sitter grammars using Emacs 31 native indicators.
+#+begin_src emacs-lisp
+(use-package hideshow
+  :straight (:type built-in)
+  :defer t
+  :commands (hs-toggle-hiding
+             hs-hide-block
+             hs-show-block
+             hs-hide-all
+             hs-show-all
+             hs-hide-level
+             hs-cycle
+             hs-toggle-all)
+  :custom
+  ;; Hide comments when hiding all blocks.
+  (hs-hide-comments-when-hiding-all nil)
+  ;; Emacs 31+: Native hidden line count next to ellipsis.
+  (hs-display-lines-hidden t)
+  ;; Emacs 31+: Clickable fringe indicators for block toggling.
+  (hs-show-indicators t)
+  (hs-indicator-type 'fringe)
+  :config
+  (define-advice hs-minor-mode (:before-while (&optional arg) guard-large-files)
+    (or (and arg (< (prefix-numeric-value arg) 1))
+        (not (too-long-file-p)))))
+#+end_src
+
+
+** DONE Rainbow Delimiters
+Depth-based delimiter colorization. Activation is confined to code buffers and aborted in massive files to prevent main-thread blocking.
+#+begin_src emacs-lisp
+(use-package rainbow-delimiters
+  :defer t
+  :custom-face
+  ;; Tokyo Night depth mapping.
+  (rainbow-delimiters-depth-1-face ((t (:foreground "#7aa2f7"))))
+  (rainbow-delimiters-depth-2-face ((t (:foreground "#e0af68"))))
+  (rainbow-delimiters-depth-3-face ((t (:foreground "#9ece6a"))))
+  (rainbow-delimiters-depth-4-face ((t (:foreground "#1abc9c"))))
+  (rainbow-delimiters-depth-5-face ((t (:foreground "#bb9af7"))))
+  (rainbow-delimiters-depth-6-face ((t (:foreground "#9d7cd8"))))
+  (rainbow-delimiters-depth-7-face ((t (:foreground "#ff9e64"))))
+  (rainbow-delimiters-depth-8-face ((t (:foreground "#f7768e"))))
+  (rainbow-delimiters-depth-9-face ((t (:foreground "#7aa2f7"))))
+  :hook ((prog-mode . rainbow-delimiters-mode)
+         (LaTeX-mode . rainbow-delimiters-mode))
+  :config
+  ;; Aborts activation in massive buffers; bypasses guard to allow explicit deactivation.
+  (define-advice rainbow-delimiters-mode (:before-while (&optional arg) guard-large-files)
+    (or (and arg (< (prefix-numeric-value arg) 1))
+        (not (too-long-file-p)))))
+#+end_src
+
+
+** DONE Hideshow
+Folds code blocks in languages lacking Tree-sitter grammars using Emacs 31 native indicators.
+#+begin_src emacs-lisp
+(use-package hideshow
+  :straight (:type built-in)
+  :defer t
+  :commands (hs-toggle-hiding
+             hs-hide-block
+             hs-show-block
+             hs-hide-all
+             hs-show-all
+             hs-hide-level
+             hs-cycle
+             hs-toggle-all)
+  :custom
+  ;; Hide comments when hiding all blocks.
+  (hs-hide-comments-when-hiding-all nil)
+  ;; Emacs 31+: Native hidden line count next to ellipsis.
+  (hs-display-lines-hidden t)
+  ;; Emacs 31+: Clickable fringe indicators for block toggling.
+  (hs-show-indicators t)
+  (hs-indicator-type 'fringe)
+  :config
+  (define-advice hs-minor-mode (:before-while (&optional arg) guard-large-files)
+    (or (and arg (< (prefix-numeric-value arg) 1))
+        (not (too-long-file-p)))))
+#+end_src
+
+
+** DONE Folding Keybindings
+#+begin_src emacs-lisp
+(general-define-key
+ :states 'motion
+ "za" #'ar/fold-toggle
+ "zo" #'ar/fold-open
+ "zc" #'ar/fold-close
+ "zR" #'ar/fold-open-all
+ "zM" #'ar/fold-close-all
+ "zf" #'evil-vimish-fold/create
+ "zF" #'evil-vimish-fold/create-line
+ "zd" #'vimish-fold-delete
+ "zE" #'vimish-fold-delete-all)
+#+end_src
+
+
+** DONE Move Text
+Provides O(1) line and region dragging. Automatically re-indents displaced lines to preserve structural integrity in whitespace-sensitive languages.
+#+begin_src emacs-lisp
+(use-package move-text
+  :defer t
+  :commands (move-text-up move-text-down)
+  :config
+  ;; Re-indent the displaced line or region to preserve structural integrity.
+  (defun ar/move-text-indent-region-advice (&rest ignored)
+    "Re-indent the current line or active region after moving text."
+    (let ((deactivate deactivate-mark))
+      (if (region-active-p)
+          (indent-region (region-beginning) (region-end))
+        (indent-region (line-beginning-position) (line-end-position)))
+      (setq deactivate-mark deactivate)))
+  (advice-add #'move-text-up :after #'ar/move-text-indent-region-advice)
+  (advice-add #'move-text-down :after #'ar/move-text-indent-region-advice))
+#+end_src
+
+
+** DONE Fill Column Indicator
+Native C-level display primitive rendering vertical boundary at =fill-column=. Confined to programming and configuration buffers.
+#+begin_src emacs-lisp
+(add-hook 'prog-mode-hook #'display-fill-column-indicator-mode)
+(add-hook 'conf-mode-hook #'display-fill-column-indicator-mode)
+#+end_src
+
+** DONE Display Dividers
+Native C-level display primitive rendering vertical window boundaries. Confined to right-only placement to eliminate horizontal redundancy.
+#+begin_src emacs-lisp
+(use-package frame
+  :straight (:type built-in)
+  :custom
+  ;; Restricts rendering to vertical boundaries and enforces a 1px baseline.
+  (window-divider-default-places 'right-only)
+  (window-divider-default-right-width 1)
+  (window-divider-default-bottom-width 1)
+  :custom-face
+  ;; Harmonizes divider typography with Tokyo Night borders.
+  (window-divider ((t (:foreground "#292e42"))))
+  :config
+  ;; Activates synchronously to guarantee matrix registration before frame painting.
+  (window-divider-mode 1))
+#+end_src
+
+
+** DONE Color Visualization
+Renders hex, RGB, and named color previews via overlay stacking. Context-aware string scoping prevents false positives in non-styling codebases.
+#+begin_src emacs-lisp
+(use-package colorful-mode
+  :defer t
+  :custom
+  ;; Confines X11/HTML color name matching strictly to strings and comments in programming buffers.
+  (colorful-only-strings 'only-prog)
+  ;; Prevents double-rendering conflicts when native CSS major modes fontify colors.
+  (css-fontify-colors nil)
+  :hook
+  ;; Restricted to styling, markup, prose, and programming modes.
+  ((css-mode scss-mode less-css-mode html-mode
+    org-mode LaTeX-mode markdown-mode gfm-mode
+    prog-mode) . colorful-mode)
+  :config
+  ;; Aborts activation in massive buffers; bypasses guard to allow explicit deactivation.
+  (define-advice colorful-mode (:before-while (&optional arg) guard-large-files)
+    (or (and arg (< (prefix-numeric-value arg) 1))
+        (not (too-long-file-p)))))
+#+end_src
+
+
+** DONE Text Scaling
+Native Emacs 29+ face-remapping engine for global typography scaling. Prevents PGTK/Wayland frame geometry expansion.
+#+begin_src emacs-lisp
+;; Prevents frame pixel boundary resizing during global zoom.
+(setq global-text-scale-adjust-resizes-frames nil)
+
+;; Lowers the zoom multiplier for granular scaling steps.
+(setq text-scale-mode-step 1.1)
+
+;; Hardcoded arguments bypass the interactive prefix parser to prevent sign inversion.
+(defun ar/global-zoom-in ()
+  "Increase global text scale across all frames."
+  (interactive)
+  (global-text-scale-adjust 1))
+
+(defun ar/global-zoom-out ()
+  "Decrease global text scale across all frames."
+  (interactive)
+  (global-text-scale-adjust -1))
+
+(defun ar/global-zoom-reset ()
+  "Reset global text scale to default."
+  (interactive)
+  (global-text-scale-adjust 0))
+
+(general-define-key
+ "C-=" #'ar/global-zoom-in
+ "C--" #'ar/global-zoom-out
+ "C-0" #'ar/global-zoom-reset
+ "C-<wheel-up>" #'ar/global-zoom-in
+ "C-<wheel-down>" #'ar/global-zoom-out)
+#+end_src
+
+
+** DONE Grep
+Finds text across files and allows direct editing of the search results to update the original files.
+#+begin_src emacs-lisp
+(use-package grep
+  :straight (:type built-in)
+  :commands (grep
+             lgrep
+             rgrep
+             zgrep
+             zrgrep)
+  :custom
+  ;; Prevents automatic buffer saving before search execution.
+  (grep-save-buffers nil)
+  ;; Groups search results by filename with visual separators.
+  (grep-use-headings t)
+  :config
+  ;; `grep-apply-setting` persists templates across `grep-compute-defaults` cycles.
+  (when-let* ((rg (executable-find "rg")))
+    (grep-apply-setting 'grep-command (format "%s -nH --null --no-heading --color=never -e " rg))
+    ;; `<X>` and `<C>` are dropped; `rg` lacks `--exclude` and ANSI colors corrupt `compilation-mode`.
+    (grep-apply-setting 'grep-template
+                        (format "%s -nH --null --no-heading --color=never -e <R> <F>" rg))
+    (grep-apply-setting 'grep-find-command (format "%s -nH --null --no-heading --color=never -e " rg))
+    ;; Routes `<X>` to `find` to bypass `rg`'s missing `--exclude` flag, then `-exec`s into `rg`.
+    (grep-apply-setting 'grep-find-template
+                        (format "find <D> <X> -type f <F> -exec %s -nH --null --no-heading --color=never -e <R> {} +" rg))
+    ;; Routes `xref-find-references` natively to ripgrep's regex engine.
+    (setq xref-search-program 'ripgrep))
+  ;; Forces Evil into normal state for read-only navigation.
+  (evil-set-initial-state 'grep-mode 'normal)
+  ;; Forces Evil into normal state for the writable edit mode.
+  (evil-set-initial-state 'grep-edit-mode 'normal)
+  ;; Injects Vim "write and quit" / "quit without saving" parity for grep mutations.
+  (evil-define-key 'normal grep-edit-mode-map
+    "ZZ" #'grep-edit-save
+    "ZQ" #'grep-edit-abort))
+#+end_src
+
+
+** DONE Woman
+Extracts system =manpath= directories to guarantee native Emacs =woman= can locate modern Arch Linux manuals without external dependencies.
+#+begin_src emacs-lisp
+(use-package woman
+  :straight (:type built-in)
+  :commands (woman)
+  :config
+  ;; Extract system manpath to guarantee `woman` locates modern Arch Linux manuals.
+  (let ((path (cond
+               ((executable-find "manpath")
+                (split-string (string-trim (shell-command-to-string "manpath -q")) path-separator t))
+               ((executable-find "man")
+                (split-string (string-trim (shell-command-to-string "man --path")) path-separator t)))))
+    (when path (setq woman-manpath path))))
+#+end_src
+

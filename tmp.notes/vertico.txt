@@ -1,0 +1,66 @@
+** DONE Vertico Multiform
+Configures display rules and candidate transformations per command and category.
+#+begin_src emacs-lisp
+(use-package vertico-multiform
+  :ensure nil
+  :after vertico
+  :config
+  ;; Intercepts candidate formatting to apply per-category text transformations.
+  (defvar ar/vertico-transform-functions nil)
+  (cl-defmethod vertico--format-candidate :around
+    (cand prefix suffix index start
+          &context ((not ar/vertico-transform-functions) null))
+    (dolist (fun (ensure-list ar/vertico-transform-functions))
+      (setq cand (funcall fun cand)))
+    (cl-call-next-method cand prefix suffix index start))
+
+  ;; Highlights directories with a trailing slash.
+  (defun ar/vertico-highlight-directory-fn (file)
+    (if (string-suffix-p "/" file)
+        (propertize file 'face 'dired-directory)
+      file))
+
+  ;; Highlights already-enabled modes in M-x using the originating buffer.
+  (defun ar/vertico-highlight-enabled-mode-fn (cmd)
+    (let ((sym (intern-soft cmd)))
+      (when sym
+        (let ((origin-buf (window-buffer (minibuffer-selected-window))))
+          (when (and origin-buf (buffer-live-p origin-buf))
+            (with-current-buffer origin-buf
+              (when (or (eq sym major-mode)
+                        (and (memq sym minor-mode-list)
+                             (boundp sym)
+                             (symbol-value sym)))
+                (add-face-text-property 0 (length cmd)
+                                        'font-lock-constant-face 'append cmd)))))))
+    cmd)
+
+  ;; Configures per-command and per-category display rules.
+  (setq vertico-multiform-commands
+        '((consult-imenu buffer)
+          (consult-outline buffer)
+          (consult-line-multi buffer)
+          (consult-yasnippet grid)
+          (execute-extended-command
+           (ar/vertico-transform-functions . ar/vertico-highlight-enabled-mode-fn))))
+  (setq vertico-multiform-categories
+        '((file
+           (ar/vertico-transform-functions . ar/vertico-highlight-directory-fn))
+          (embark-keybinding grid)))
+  ;; Activates the multiform engine post-load.
+  (vertico-multiform-mode 1))
+
+;; Remaps C-s to fuzzy-search minibuffer input history.
+(defvar ar/minibuffer-maps
+  '(minibuffer-local-map
+    minibuffer-local-ns-map
+    minibuffer-local-completion-map
+    minibuffer-local-must-match-map
+    minibuffer-local-isearch-map
+    read-expression-map)
+  "List of minibuffer keymaps.")
+
+(with-eval-after-load 'consult
+  (dolist (keymap ar/minibuffer-maps)
+    (define-key (symbol-value keymap) (kbd "C-s") #'consult-history)))
+#+end_src
