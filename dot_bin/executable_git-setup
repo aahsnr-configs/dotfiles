@@ -10,10 +10,10 @@
 # and automatic identity switching based on directory location.
 #
 # Features:
-# - Cleanup of existing SSH, Git, and GitHub CLI configuration, scoped to the
-#   keys and files this script manages (after an explicit confirmation)
+# - Full cleanup of SSH keys and files, Git config, GitHub CLI logins, and
+#   GPG keys you own (after an explicit confirmation)
 # - Every removed item is backed up first, preserving its path, into a
-#   private (chmod 700) backup directory
+#   private (chmod 700) backup directory; GPG keys are exported one by one
 # - OS detection: Arch Linux (pacman) and Gentoo (emerge); offers to install
 #   missing required packages
 # - Generates Ed25519 SSH keys - one per account (optional passphrase)
@@ -21,10 +21,12 @@
 #   used exclusively for commit and tag signing
 # - Configures SSH config with host aliases
 # - Sets up Git with conditional includes for directory-based account switching
-#   including the per-account GPG signing key
+#   of identity, GPG signing key, and SSH auth (url.insteadOf)
 # - Configures GitHub CLI for SSH protocol
 # - Configures gpg-agent with sane cache TTLs and a safe launch
 # - Exports backups of the managed GPG secret keys to ~/.gnupg/backups/
+# - Verifies every account ends with both an SSH and a GPG key, and that each
+#   account's host alias resolves to its own key
 # - Comprehensive error handling and validation
 # - Plain ANSI color output (respects NO_COLOR; fish shell compatible)
 #
@@ -33,7 +35,7 @@
 # Shell Compatibility: bash (works when executed from fish shell)
 #
 # License: GPL-3.0
-# Version: 5.2.0
+# Version: 5.4.0
 
 if ((BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 4))); then
     echo "Error: bash >= 4.4 is required (found ${BASH_VERSION})." >&2
@@ -48,7 +50,7 @@ shopt -s nullglob
 # CONSTANTS AND CONFIGURATION
 # =============================================================================
 
-readonly SCRIPT_VERSION="5.2.0"
+readonly SCRIPT_VERSION="5.4.0"
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
 readonly SCRIPT_NAME
 readonly SSH_DIR="${HOME}/.ssh"
@@ -207,6 +209,52 @@ version_ge() {
 
 ssh_key_file() { echo "${SSH_DIR}/${SSH_KEY_PREFIX}$1"; }
 
+# Fail early when the account maps drift apart (e.g. an account added to
+# ACCOUNTS but not GIT_NAMES), instead of aborting mid-run under set -u
+validate_account_config() {
+    local account email dir
+    local seen_emails="" seen_dirs=""
+
+    for account in "${ACCOUNT_ORDER[@]}"; do
+        if [[ -z "${ACCOUNTS[${account}]:-}" ]]; then
+            print_error "Account '${account}' is missing from ACCOUNTS"
+            return 1
+        fi
+        if [[ -z "${GIT_NAMES[${account}]:-}" ]]; then
+            print_error "Account '${account}' is missing from GIT_NAMES"
+            return 1
+        fi
+    done
+
+    for account in "${DIR_ACCOUNTS[@]}"; do
+        if [[ " ${ACCOUNT_ORDER[*]} " != *" ${account} "* ]]; then
+            print_error "Directory account '${account}' is not in ACCOUNT_ORDER"
+            return 1
+        fi
+        if [[ -z "${GIT_DIRS[${account}]:-}" ]]; then
+            print_error "Directory account '${account}' is missing from GIT_DIRS"
+            return 1
+        fi
+        dir="${GIT_DIRS[${account}]}"
+        if [[ " ${seen_dirs} " == *" ${dir} "* ]]; then
+            print_error "Duplicate Git directory '${dir}' (account '${account}')"
+            return 1
+        fi
+        seen_dirs+=" ${dir}"
+    done
+
+    for account in "${ACCOUNT_ORDER[@]}"; do
+        email="${ACCOUNTS[${account}]}"
+        if [[ " ${seen_emails} " == *" ${email} "* ]]; then
+            print_error "Duplicate e-mail '${email}' (account '${account}')"
+            return 1
+        fi
+        seen_emails+=" ${email}"
+    done
+
+    return 0
+}
+
 # Create the backup directory, private to the current user (it will hold
 # private keys and tokens)
 ensure_backup_dir() {
@@ -341,8 +389,82 @@ install_packages() {
 }
 
 # =============================================================================
-# COMPREHENSIVE CLEANUP (scoped to managed keys and known config files)
+# COMPREHENSIVE CLEANUP (full SSH, Git, GPG, and GitHub CLI reset)
 # =============================================================================
+
+# Export every secret key this user owns, then delete it from the keyring.
+# A key is only deleted after its export succeeded, so a forgotten passphrase
+# leaves that key in place instead of losing it. Public keys without a secret
+# half (e.g. imported for signature verification) are never touched.
+backup_and_remove_gpg_keys() {
+    print_info "Backing up and removing GPG keys..."
+
+    # pinentry needs the controlling terminal for export passphrase prompts
+    if tty -s 2>/dev/null; then
+        GPG_TTY="$(tty)"
+        export GPG_TTY
+    fi
+
+    local -a fingerprints=()
+    local fpr
+    while IFS= read -r fpr; do
+        if [[ -n "${fpr}" ]]; then
+            fingerprints+=("${fpr}")
+        fi
+    done < <(
+        gpg --list-secret-keys --with-colons --fingerprint 2>/dev/null |
+            awk -F: '$1 == "sec" { have_primary = 0; next }
+                    $1 == "fpr" && !have_primary { print $10; have_primary = 1 }' || true
+    )
+
+    if [[ ${#fingerprints[@]} -eq 0 ]]; then
+        print_info "No GPG secret keys found"
+        return 0
+    fi
+
+    local gpg_backup="${BACKUP_DIR}/gpg"
+    mkdir -p "${gpg_backup}"
+    chmod 700 "${gpg_backup}"
+
+    local removed_keys=0 kept_keys=0 dest
+    for fpr in "${fingerprints[@]}"; do
+        dest="${gpg_backup}/secret-key-${fpr}.asc"
+        if (
+            umask 077
+            gpg --yes --armor --output "${dest}" --export-secret-keys "${fpr}"
+        ); then
+            # --delete-secret-and-public-keys exits 0 even when it deletes
+            # nothing, so confirm removal by listing the key again
+            gpg --batch --yes --delete-secret-and-public-keys "${fpr}" 2>/dev/null || true
+            if gpg --list-secret-keys --with-colons "${fpr}" &>/dev/null ||
+                gpg --list-keys --with-colons "${fpr}" &>/dev/null; then
+                print_warning "Backed up ${fpr} but it is still in the keyring"
+                kept_keys=$((kept_keys + 1))
+            else
+                print_success "Backed up and removed GPG key ${fpr}"
+                removed_keys=$((removed_keys + 1))
+            fi
+        else
+            print_warning "Could not export ${fpr}; leaving the key in place (is its passphrase known?)"
+            kept_keys=$((kept_keys + 1))
+        fi
+    done
+
+    # Ownertrust so a restored keyring keeps its trust settings
+    if (
+        umask 077
+        gpg --export-ownertrust >"${gpg_backup}/ownertrust.txt"
+    ) 2>/dev/null; then
+        chmod 600 "${gpg_backup}/ownertrust.txt"
+        print_success "Owner trust backed up: ${gpg_backup}/ownertrust.txt"
+    fi
+
+    ITEMS_REMOVED=$((ITEMS_REMOVED + removed_keys))
+    if [[ ${kept_keys} -gt 0 ]]; then
+        print_warning "${kept_keys} GPG key(s) could not be removed (see above)"
+    fi
+    return 0
+}
 
 cleanup_all_configs() {
     print_section "Configuration Cleanup"
@@ -350,18 +472,20 @@ cleanup_all_configs() {
     print_warning "${BOLD}This will DELETE the following configurations:${NC}"
     echo ""
     echo "  1. SSH keys managed by this script (${SSH_DIR}/${SSH_KEY_PREFIX}<account>[.pub])"
-    echo "  2. SSH config:                   ${SSH_DIR}/config (will be regenerated)"
+    echo "  2. All other files in ${SSH_DIR} (other keys, known_hosts, config)"
+    echo "       (the ${SSH_DIR}/agent socket directory is left in place)"
     echo "  3. Global Git config:            ${GIT_CONFIG}"
-    echo "  4. XDG Git config file:          ${GIT_XDG_CONFIG}/config"
+    echo "  4. XDG Git config directory:     ${GIT_XDG_CONFIG} (whole directory)"
     echo "  5. Directory Git configs:        <dir>/.gitconfig for each of:"
     local account
     for account in "${DIR_ACCOUNTS[@]}"; do
         echo "       ${GIT_DIRS[${account}]}"
     done
     echo "  6. GitHub CLI config:            ${GH_CONFIG_DIR} (removes ALL gh logins)"
+    echo "  7. GPG keys:                     every secret key you own"
     echo ""
     echo -e "${CYAN}Everything is backed up first to: ${BACKUP_DIR}${NC}"
-    echo -e "${YELLOW}Other SSH keys, other files in ~/.ssh and ~/.config/git, and your GPG keys are left untouched.${NC}"
+    echo -e "${YELLOW}GPG keys are exported key by key; a key whose passphrase cannot be entered is kept.${NC}"
     echo ""
 
     if ! confirm "Do you want to proceed with the cleanup?"; then
@@ -385,14 +509,31 @@ cleanup_all_configs() {
         remove_with_backup "${key_file}.pub"
     done
 
-    # 2. SSH config
-    remove_with_backup "${SSH_DIR}/config"
+    # 2. Everything else in ~/.ssh (other keys, known_hosts, config). The
+    #    agent socket directory is kept so a running agent is not stranded
+    if [[ -d "${SSH_DIR}" ]]; then
+        print_info "Removing remaining files in ${SSH_DIR}..."
+        local entry
+        for entry in "${SSH_DIR}"/* "${SSH_DIR}"/.[!.]*; do
+            [[ -e "${entry}" || -L "${entry}" ]] || continue
+            if [[ "${entry}" == "${SSH_DIR}/agent" ]]; then
+                print_info "Keeping SSH agent directory: ${entry}"
+                continue
+            fi
+            remove_with_backup "${entry}"
+        done
+    fi
+
+    # Identities from the deleted key files must not linger in a live agent
+    if ssh-add -D &>/dev/null; then
+        print_success "Cleared keys held by the running SSH agent"
+    fi
 
     # 3. Global gitconfig
     remove_with_backup "${GIT_CONFIG}"
 
-    # 4. XDG git config file only (keep ignore/attributes etc.)
-    remove_with_backup "${GIT_XDG_CONFIG}/config"
+    # 4. XDG Git config directory (config, ignore, attributes, ...)
+    remove_with_backup "${GIT_XDG_CONFIG}"
 
     # 5. Directory-specific gitconfigs (managed directories only)
     for account in "${DIR_ACCOUNTS[@]}"; do
@@ -401,6 +542,9 @@ cleanup_all_configs() {
 
     # 6. GitHub CLI config
     remove_with_backup "${GH_CONFIG_DIR}"
+
+    # 7. GPG keys (exported to the backup before deletion)
+    backup_and_remove_gpg_keys
 
     echo ""
     if [[ ${ITEMS_REMOVED} -gt 0 ]]; then
@@ -493,6 +637,16 @@ check_dependencies() {
         print_info "Install from: https://cli.github.com/"
     fi
 
+    # GPG export (cleanup) and key generation both need a pinentry program.
+    # Check it before the cleanup step so a doomed run never deletes keys.
+    if pinentry_program &>/dev/null; then
+        print_success "pinentry found (needed for GPG passphrase prompts)"
+    else
+        print_error "No pinentry program found; GPG passphrases cannot be prompted for"
+        print_info "Install pinentry (Arch: 'pinentry', Gentoo: 'app-crypt/pinentry') and re-run."
+        exit 1
+    fi
+
     print_success "All required dependencies satisfied"
 }
 
@@ -511,14 +665,31 @@ generate_ssh_keys() {
 
     local account key_file
     local -a pending=()
+    local repaired=0
     for account in "${ACCOUNT_ORDER[@]}"; do
         key_file="$(ssh_key_file "${account}")"
-        if [[ -f "${key_file}" ]]; then
+        if [[ -f "${key_file}" && -f "${key_file}.pub" ]]; then
             print_info "Key for ${account} already exists: ${key_file}"
+        elif [[ -f "${key_file}" ]]; then
+            # A private key without its public half (e.g. after an interrupted
+            # run) would otherwise be skipped and never repaired
+            print_info "Public key missing for ${account}; rebuilding ${key_file}.pub"
+            if ssh-keygen -y -f "${key_file}" >"${key_file}.pub" 2>/dev/null; then
+                chmod 644 "${key_file}.pub"
+                print_success "Rebuilt public key for ${account}"
+                repaired=$((repaired + 1))
+            else
+                print_error "Could not rebuild public key for ${account}; remove ${key_file} and re-run"
+                return 1
+            fi
         else
             pending+=("${account}")
         fi
     done
+
+    if [[ ${repaired} -gt 0 ]]; then
+        print_success "Rebuilt ${repaired} public key(s)"
+    fi
 
     if [[ ${#pending[@]} -eq 0 ]]; then
         print_info "All SSH keys already exist"
@@ -638,11 +809,51 @@ gpg_key_exists() {
     gpg --list-secret-keys --with-colons "<${email}>" &>/dev/null
 }
 
-# Prints the primary-key fingerprint of the first secret key for an e-mail
-gpg_key_fingerprint() {
-    local email="$1"
+# Prints the primary fingerprint of the first secret key for an e-mail. When
+# $2 is non-empty, only a key whose UID matches that string exactly is used.
+_gpg_primary_fpr() {
+    local email="$1" want="${2:-}"
     gpg --list-secret-keys --with-colons --fingerprint "<${email}>" 2>/dev/null |
-        awk -F: '/^fpr:/ && !seen { print $10; seen = 1 }'
+        awk -F: -v want="${want}" '
+            $1 == "sec" { have_primary = 0; primary = ""; next }
+            $1 == "fpr" && !have_primary { primary = $10; have_primary = 1; next }
+            $1 == "uid" && primary != "" && (want == "" || $10 == want) {
+                print primary
+                exit
+            }
+        ' || true
+}
+
+# Fingerprint of the account's own key. Binding to "Name <email>" keeps
+# accounts with more than one secret key on the same e-mail unambiguous (e.g.
+# a project key in addition to the commit-signing key).
+gpg_account_fingerprint() {
+    local account="$1"
+    local name="${GIT_NAMES[${account}]:-}"
+    local email="${ACCOUNTS[${account}]:-}"
+    local want="${name} <${email}>"
+    local fp=""
+
+    fp="$(_gpg_primary_fpr "${email}" "${want}")"
+    if [[ -z "${fp}" ]]; then
+        fp="$(_gpg_primary_fpr "${email}" "")"
+        if [[ -n "${fp}" ]]; then
+            print_warning "No secret key UID matches '${want}'; using ${fp} for ${account}" >&2
+        fi
+    fi
+    printf '%s\n' "${fp}"
+}
+
+# Prints the path of the first available pinentry program, if any
+pinentry_program() {
+    local candidate
+    for candidate in pinentry-curses pinentry-tty pinentry-qt pinentry-gnome3 pinentry-gtk-2 pinentry; do
+        if command_exists "${candidate}"; then
+            command -v "${candidate}"
+            return 0
+        fi
+    done
+    return 1
 }
 
 # =============================================================================
@@ -659,7 +870,7 @@ configure_git() {
     # Resolve the GPG signing key for the default (configs) account
     local configs_signing_key=""
     if gpg_key_exists "${ACCOUNTS[configs]}"; then
-        configs_signing_key="$(gpg_key_fingerprint "${ACCOUNTS[configs]}")"
+        configs_signing_key="$(gpg_account_fingerprint configs)"
     fi
 
     cat >"${temp_config}" <<EOF
@@ -750,7 +961,7 @@ EOF
         account_signing_key=""
 
         if gpg_key_exists "${ACCOUNTS[${account}]}"; then
-            account_signing_key="$(gpg_key_fingerprint "${ACCOUNTS[${account}]}")"
+            account_signing_key="$(gpg_account_fingerprint "${account}")"
         fi
 
         mkdir -p "${dir}"
@@ -774,6 +985,15 @@ EOF
     gpgsign = true
 EOF
         fi
+
+        # Inside this directory, plain GitHub SSH URLs must authenticate with
+        # this account's key; per-directory rewrites cannot be shadowed by a
+        # global rewrite, so no global insteadOf rule is written
+        cat >>"${dir_config}" <<EOF
+
+[url "git@${SSH_HOST_PREFIX}${account}:"]
+    insteadOf = git@github.com:
+EOF
 
         chmod 644 "${dir_config}"
         print_success "Created ${account} Git config: ${dir_config}"
@@ -889,14 +1109,8 @@ setup_gpg_agent() {
     backup_item "${agent_conf}" || true
 
     # Determine the best available pinentry
-    local pinentry_prog="" candidate candidate_path
-    for candidate in pinentry-curses pinentry-qt pinentry-gnome3 pinentry-gtk-2 pinentry; do
-        candidate_path="$(command -v "${candidate}" 2>/dev/null || true)"
-        if [[ -n "${candidate_path}" && -x "${candidate_path}" ]]; then
-            pinentry_prog="${candidate_path}"
-            break
-        fi
-    done
+    local pinentry_prog=""
+    pinentry_prog="$(pinentry_program 2>/dev/null || true)"
 
     cat >"${agent_conf}" <<EOF
 # gpg-agent.conf - Generated by ${SCRIPT_NAME} v${SCRIPT_VERSION}
@@ -957,7 +1171,7 @@ generate_gpg_keys() {
         name="${GIT_NAMES[${account}]}"
 
         if gpg_key_exists "${email}"; then
-            fp="$(gpg_key_fingerprint "${email}")"
+            fp="$(gpg_account_fingerprint "${account}")"
             print_info "GPG key already exists for ${account} (${email})"
             print_info "  Fingerprint: ${fp}"
             continue
@@ -984,7 +1198,7 @@ Expire-Date: 2y
 EOF
 
         if gpg --batch --gen-key "${batch_input}" 2>"${gen_log}"; then
-            fingerprint="$(gpg_key_fingerprint "${email}")"
+            fingerprint="$(gpg_account_fingerprint "${account}")"
             if [[ -n "${fingerprint}" ]]; then
                 # Mark our own key as ultimately trusted
                 echo "${fingerprint}:6:" | gpg --import-ownertrust 2>/dev/null || true
@@ -1001,10 +1215,21 @@ EOF
         rm -f "${batch_input}" "${gen_log}"
     done
 
-    if [[ ${generated} -eq 0 ]]; then
-        print_info "No new GPG keys were generated (all exist, or generation failed)"
-    else
+    local -a missing=()
+    for account in "${ACCOUNT_ORDER[@]}"; do
+        gpg_key_exists "${ACCOUNTS[${account}]}" || missing+=("${account}")
+    done
+
+    if [[ ${generated} -gt 0 ]]; then
         print_success "Generated ${generated} new GPG key(s)"
+    elif [[ ${#missing[@]} -eq 0 ]]; then
+        print_info "All GPG keys already exist"
+    fi
+
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        print_error "GPG keys are still missing for: ${missing[*]}"
+        print_info "Commits and tags for those accounts cannot be signed until this is fixed."
+        print_info "Review the 'gpg:' output above; pinentry or passphrase problems are the usual cause."
     fi
 }
 
@@ -1028,7 +1253,7 @@ backup_gpg_keys() {
     local -a fingerprints=()
     for account in "${ACCOUNT_ORDER[@]}"; do
         if gpg_key_exists "${ACCOUNTS[${account}]}"; then
-            fp="$(gpg_key_fingerprint "${ACCOUNTS[${account}]}")"
+            fp="$(gpg_account_fingerprint "${account}")"
             if [[ -n "${fp}" ]]; then
                 fingerprints+=("${fp}")
             fi
@@ -1073,7 +1298,7 @@ verify_setup() {
     print_section "Verifying Setup"
 
     local all_good=true
-    local account email key_file pub_file fp
+    local account email key_file pub_file fp alias_key alias_expected_key
 
     # Check SSH keys
     print_info "Checking SSH keys..."
@@ -1094,17 +1319,18 @@ verify_setup() {
     for account in "${ACCOUNT_ORDER[@]}"; do
         email="${ACCOUNTS[${account}]}"
         if gpg_key_exists "${email}"; then
-            fp="$(gpg_key_fingerprint "${email}")"
+            fp="$(gpg_account_fingerprint "${account}")"
             echo -e "  ${GREEN}✓${NC} ${account}: GPG key exists (${fp:0:16}...)"
         else
-            echo -e "  ${YELLOW}⚠${NC} ${account}: GPG key missing (commits will be unsigned)"
+            echo -e "  ${RED}✗${NC} ${account}: GPG key missing (commits will be unsigned)"
+            all_good=false
         fi
     done
 
     # Check SSH config
     print_info "Checking SSH config..."
     if [[ -f "${SSH_DIR}/config" ]]; then
-        if ssh -G "${SSH_HOST_PREFIX}configs" &>/dev/null; then
+        if ssh -F "${SSH_DIR}/config" -G "${SSH_HOST_PREFIX}configs" &>/dev/null; then
             print_success "SSH config exists and is valid"
         else
             print_error "SSH config has syntax errors"
@@ -1114,6 +1340,19 @@ verify_setup() {
         print_error "SSH config missing"
         all_good=false
     fi
+
+    # Every account's host alias must resolve to its own key
+    for account in "${ACCOUNT_ORDER[@]}"; do
+        alias_expected_key="$(ssh_key_file "${account}")"
+        alias_key="$(ssh -F "${SSH_DIR}/config" -G "${SSH_HOST_PREFIX}${account}" 2>/dev/null |
+            awk 'tolower($1) == "identityfile" { print $2; exit }' || true)"
+        if [[ "${alias_key}" == "${alias_expected_key}" ]]; then
+            echo -e "  ${GREEN}✓${NC} ${account}: SSH alias uses its own key"
+        else
+            echo -e "  ${RED}✗${NC} ${account}: SSH alias uses ${alias_key:-<none>}"
+            all_good=false
+        fi
+    done
 
     # Check Git config
     print_info "Checking Git config..."
@@ -1172,7 +1411,7 @@ verify_setup() {
             fi
 
             if gpg_key_exists "${ACCOUNTS[${account}]}"; then
-                expected_key="$(gpg_key_fingerprint "${ACCOUNTS[${account}]}")"
+                expected_key="$(gpg_account_fingerprint "${account}")"
                 detected_key="$(git -C "${test_dir}" config user.signingkey 2>/dev/null || true)"
                 if [[ "${detected_key}" == "${expected_key}" ]]; then
                     echo -e "  ${GREEN}✓${NC} ${account} directory uses its own GPG signing key"
@@ -1225,7 +1464,7 @@ display_public_keys() {
             printf '%b %s\n' "${YELLOW}│${NC}" "SSH Fingerprint: ${fingerprint}"
 
             if gpg_key_exists "${email}"; then
-                gpg_fp="$(gpg_key_fingerprint "${email}")"
+                gpg_fp="$(gpg_account_fingerprint "${account}")"
                 printf '%b %s\n' "${YELLOW}│${NC}" "GPG Fingerprint: ${gpg_fp}"
             fi
 
@@ -1331,6 +1570,8 @@ display_instructions() {
 
     say "${BOLD}Pro Tips:${NC}\n\n"
     say "   • Always clone repos into the correct directory for auto identity switching\n"
+    say "   • Inside each ~/Git/<account>/ directory, plain git@github.com: URLs\n"
+    say "     automatically use that account's SSH key (url.insteadOf)\n"
     say "   • Use ${CYAN}git config user.email${NC} inside a repo to confirm the active identity\n"
     say "   • If a repo is in the wrong directory, fix the remote URL:\n"
     say "     ${CYAN}git remote set-url origin git@${SSH_HOST_PREFIX}<account>:USER/REPO.git${NC}\n"
@@ -1347,13 +1588,15 @@ display_instructions() {
 main() {
     print_header
 
+    validate_account_config
+
     check_dependencies
 
     echo ""
-    print_info "This script will CLEAN UP managed configurations and set up"
+    print_info "This script will CLEAN UP SSH keys and files, Git config, GitHub CLI"
+    print_info "logins, and GPG keys you own (all backed up first), then set up fresh"
     print_info "SSH keys, GPG keys (for commit signing), Git config, and GitHub CLI"
     print_info "for multiple GitHub accounts."
-    print_info "Non-managed SSH keys will be left untouched."
     echo ""
     print_info "Detected distribution: ${BOLD}${DISTRO}${NC}"
     echo ""
@@ -1369,7 +1612,7 @@ main() {
     generate_ssh_keys
     configure_ssh
 
-    # Configure Git (includes per-account GPG signing key now that keys exist)
+    # Configure Git (identity, signing key, and SSH auth for every account)
     configure_git
 
     # Back up managed GPG secret keys
