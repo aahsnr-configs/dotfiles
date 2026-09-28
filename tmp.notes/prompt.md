@@ -24,17 +24,29 @@ For the nix setup, look at https://github.com/fu5ha/winter and determine how it 
 
 Using the bash script as the reference for my git setup, create another bash script that allows to create a repo using gh tool from github. This new bash script must be interactive, comprehensive and cover all bases.
 
-Search the web, think for longer and write an unified html file that would act as the the ultimate guide using the two attached markdown files as the base content and then this guide must also contain the following:
+Search the web, think for longer and write the ultimate setup catered:
 
 - opencode , opencode web, and opencode desktop installation in both fedora and arch linux
-- litellm, pydantic and langgraph integration
+- pydantic and langgraph integration, whether there any advantages/disadvantages to all these 2 tools and what is the best way to use these two tools
 - optimizing opencode for agentic programming
 - minimizing token usage
 - the whole opencode setup optimized for deep research for professional scientists
-- ide integrations for code suggestions and code completions
+- ide integrations for code suggestions and code completions, e.g. vscode code completion by using Opencode Go API in copilot
 - open notebook integration
-- and productivity tools integration
-- best llm for websearch with opencode optimizations in gui
+- adding productivity tools integration like creating document files like claude in the web
+- best llm for websearch with opencode optimizations without spending too much cost
 - nanoclaw integration
 
-The final html output must be a single html file with interactive elements and tokyonight colorscheme (with medium contrast)
+opencode-desktop uses the version v1.18.32. Verify that for me. I am using opencode 2.0.14 so how I solve the issue of pasting images into opencode cli tool
+
+Also audit the config files in the markdown code blocks and also add detailed instructions for using opencode v2 correctly for someone who does not have time read all the documentations. Remove stale references to previously existing stuff from the README as well.
+
+Audit and review all the files and folders in the opencode-go repo. Then rewrite the files that need changes in their entirety in the form of separate markdown code blocks. Verify against latest docs for opencode cli v2 and kilo as of September 20, 2026.
+
+---
+
+Perform another audit and review of the whole halcyon-packages project as it stands right now. Then determine if there are ways to improve halcyon-packages project. Search the web and think longer for these tasks and use best practices.
+
+---
+
+For the halcyon-packages project, improve the README.md and Instructions.md be more concise, precise and cohesive, easy-to-read and developer-friendly. And then present the markdown files for Download. Add mermaid diagrams where needed for Github rendering. Assume that pkgs are folder is present.
