@@ -6,6 +6,9 @@
 -- Variables shared across modules are defined in vars.lua.
 require("hyprland/vars")
 require("hyprland/env")
+-- Custom layouts must register before settings/workspaces reference them;
+-- custom layouts are always addressed with the "lua:" prefix.
+require("hyprland/leftscroll")
 require("hyprland/settings")
 require("hyprland/monitor")
 require("hyprland/plugins")

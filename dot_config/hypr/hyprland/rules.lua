@@ -12,6 +12,17 @@ hl.window_rule({
 	opacity = "0.95 0.95",
 })
 
+-- Kitty requests maximize on its own at map time (window covers the whole
+-- screen without being real fullscreen). Force a clean tiled state and ignore
+-- later client maximize requests. kitty-dropterm is included so its 70%
+-- floating size below wins over the maximize request too.
+hl.window_rule({
+	name = "kitty_no_maximize",
+	match = { class = "^(kitty|kitty-dropterm)$" },
+	fullscreen_state = "0 0",
+	suppress_event = "maximize",
+})
+
 -- Kitty drop-terminal
 hl.window_rule({
 	name = "kitty_floating",
@@ -131,15 +142,15 @@ hl.window_rule({
 })
 
 -- Brave Google sign-in popup
-hl.window_rule({
-	name = "google_signin_popup",
-	match = { class = "^(brave-browser)$", title = "^(Untitled - Brave)$" },
-	float = true,
-	size = "450 600",
-	move = "(cursor_x-(window_w*0.5)) (cursor_y-(window_h*0.5))",
-	no_blur = true,
-	no_anim = true,
-})
+-- hl.window_rule({
+-- 	name = "google_signin_popup",
+-- 	match = { class = "^(brave-browser)$", title = "^(Untitled - Brave)$" },
+-- 	float = true,
+-- 	size = "450 600",
+-- 	move = "(cursor_x-(window_w*0.5)) (cursor_y-(window_h*0.5))",
+-- 	no_blur = true,
+-- 	no_anim = true,
+-- })
 
 -- Bitwarden popup
 hl.window_rule({

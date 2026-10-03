@@ -5,10 +5,11 @@
 local M = {}
 
 -- Fallback layout table matching your workspaces.lua definitions
+-- (custom layouts keep the "lua:" prefix, exactly as ws.tiled_layout reports them)
 local WS_LAYOUT = {
-	[1] = "scrolling",
-	[2] = "scrolling",
-	[3] = "scrolling",
+	[1] = "lua:leftscroll",
+	[2] = "lua:leftscroll",
+	[3] = "lua:leftscroll",
 	[4] = "hy3",
 	[5] = "hy3",
 	[6] = "hy3",
@@ -26,8 +27,16 @@ local function get_active_layout()
 
 	local layout = ws.tiled_layout
 
-	-- Validate against known Hyprland layouts
-	if layout == "scrolling" or layout == "dwindle" or layout == "master" or layout == "monocle" or layout == "hy3" then
+	-- Validate against known Hyprland layouts ("lua:leftscroll" is what a
+	-- workspace running the custom leftscroll layout reports)
+	if
+		layout == "scrolling"
+		or layout == "lua:leftscroll"
+		or layout == "dwindle"
+		or layout == "master"
+		or layout == "monocle"
+		or layout == "hy3"
+	then
 		return layout
 	end
 
@@ -45,7 +54,7 @@ function M.dispatch(action, direction)
 
 	-- ACTION: FOCUS
 	if action == "focus" then
-		if layout == "scrolling" then
+		if layout == "scrolling" or layout == "lua:leftscroll" then
 			hl.dispatch(hl.dsp.layout("focus " .. direction))
 		elseif layout == "master" or layout == "monocle" then
 			if direction == "r" or direction == "d" then
@@ -66,6 +75,12 @@ function M.dispatch(action, direction)
 				hl.dispatch(hl.dsp.layout("swapcol r"))
 			else
 				hl.dispatch(hl.dsp.window.move({ direction = direction }))
+			end
+		elseif layout == "lua:leftscroll" then
+			if direction == "l" or direction == "r" then
+				hl.dispatch(hl.dsp.layout("movecol " .. direction))
+			else
+				hl.dispatch(hl.dsp.layout("movewin " .. direction))
 			end
 		elseif layout == "master" then
 			if direction == "r" or direction == "d" then
@@ -90,6 +105,16 @@ function M.dispatch(action, direction)
 				hl.dispatch(hl.dsp.layout("colresize -0.05"))
 			elseif direction == "r" then
 				hl.dispatch(hl.dsp.layout("colresize +0.05"))
+			elseif direction == "u" then
+				hl.dispatch(hl.dsp.window.resize({ x = 0, y = -60, relative = true }))
+			elseif direction == "d" then
+				hl.dispatch(hl.dsp.window.resize({ x = 0, y = 60, relative = true }))
+			end
+		elseif layout == "lua:leftscroll" then
+			if direction == "l" then
+				hl.dispatch(hl.dsp.layout("resize -0.05"))
+			elseif direction == "r" then
+				hl.dispatch(hl.dsp.layout("resize +0.05"))
 			elseif direction == "u" then
 				hl.dispatch(hl.dsp.window.resize({ x = 0, y = -60, relative = true }))
 			elseif direction == "d" then

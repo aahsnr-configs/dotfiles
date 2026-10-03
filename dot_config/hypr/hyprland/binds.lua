@@ -132,7 +132,21 @@ hl.bind(mainMod .. " + SHIFT + Z", hl.dsp.exec_cmd(vars.pypr .. " zoom"))
 -- HYPRLAND CORE
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 hl.bind(mainMod .. " + BackSpace", hl.dsp.window.pseudo({ action = "toggle" }))
-hl.bind(mainMod .. " + slash", hl.dsp.layout("togglesplit"))
+-- togglesplit is dwindle-only; no-op on other layouts instead of erroring
+hl.bind(mainMod .. " + slash", function()
+	local ws = hl.get_active_special_workspace() or hl.get_active_workspace()
+	if ws and ws.tiled_layout == "dwindle" then
+		hl.dispatch(hl.dsp.layout("togglesplit"))
+	end
+end)
+
+-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+-- LEFTSCROLL LAYOUT (hyprland/leftscroll.lua — workspaces 1-3, research, stage)
+-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+-- Consume into previous column / expel into a new column (niri-style stacking)
+hl.bind(mainMod .. " + C", hl.dsp.layout("consume_or_expel"))
+-- One-off centering of the focused column
+hl.bind(mainMod .. " + SHIFT + C", hl.dsp.layout("center"))
 
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 -- FOCUS & MOVEMENT (Routed natively through unified-dispatch.lua)
@@ -181,8 +195,8 @@ end, { repeating = true })
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 -- MOUSE SCROLLING
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-hl.bind("CTRL + SUPER + mouse_down", hl.dsp.focus({ workspace = "-10" }))
-hl.bind("CTRL + SUPER + mouse_up", hl.dsp.focus({ workspace = "+10" }))
+hl.bind("CTRL + SUPER + mouse_down", hl.dsp.focus({ workspace = "+10" }))
+hl.bind("CTRL + SUPER + mouse_up", hl.dsp.focus({ workspace = "-10" }))
 hl.bind(mainMod .. " + mouse_down", hl.dsp.focus({ workspace = "e+1" }))
 hl.bind(mainMod .. " + mouse_up", hl.dsp.focus({ workspace = "e-1" }))
 
@@ -195,8 +209,7 @@ hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 hl.bind(mainMod .. " + minus", hl.dsp.window.move({ workspace = "special:minimized" }))
 hl.bind(mainMod .. " + equal", hl.dsp.workspace.toggle_special("minimized"))
-hl.bind("CTRL + SUPER + ALT + up", hl.dsp.window.move({ workspace = "special:special" }))
-hl.bind("CTRL + SUPER + ALT + down", hl.dsp.window.move({ workspace = "e+0" }))
+-- CTRL+SUPER+ALT+up/down (move window to ws -1/+1) live in workspaces.lua
 hl.bind(mainMod .. " + ALT + S", hl.dsp.window.move({ workspace = "special:special" }))
 
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

@@ -28,7 +28,7 @@ if hl.plugin.hy3 ~= nil then
 		},
 	})
 end
-if hl.plugin.scrollview ~= nil then
+if hl.plugin.scrolloverview ~= nil then
 	-- .config/hypr/hyprland.lua
 	hl.config({
 		plugin = {
@@ -49,8 +49,11 @@ if hl.plugin.scrollview ~= nil then
 	})
 end
 
--- Toggle ScrollOverview with SUPER+g
+-- Toggle ScrollOverview with SUPER+Tab (no-op while the plugin isn't loaded)
 hl.bind("SUPER + Tab", function()
+	if hl.plugin.scrolloverview == nil then
+		return
+	end
 	hl.plugin.scrolloverview.overview("toggle all")
 end)
 
