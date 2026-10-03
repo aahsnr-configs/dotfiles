@@ -1,0 +1,8 @@
+# direnv global configuration.
+# Read from $XDG_CONFIG_HOME/direnv/direnv.toml (direnv >= 2.21.0; older
+# versions read config.toml). See https://direnv.net/man/direnv.toml.1.html
+
+[global]
+# Don't print the environment diff each time a .envrc is loaded.
+# Mirrors programs.direnv.config.global.hide_env_diff in home-manager.
+hide_env_diff = true
