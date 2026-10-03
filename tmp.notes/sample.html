@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>AURELINE — Atelier Configurator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#12100e; --panel:rgba(17,15,12,.78); --ink:#eae4d5; --mut:rgba(234,228,213,.52);
+    --hair:rgba(234,228,213,.14); --acc:#c8a35c; --serif:'Fraunces',Georgia,serif; --mono:'IBM Plex Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+  body{background:var(--bg);color:var(--ink);font-family:var(--mono);-webkit-font-smoothing:antialiased;user-select:none}
+  button{font-family:var(--mono);color:var(--ink);background:none;border:none;cursor:pointer}
+  .lucide{width:17px;height:17px;stroke-width:1.6}
+
+  /* ---------- stage ---------- */
+  #stage{position:fixed;inset:0}
+  #arVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;transform:scaleX(-1)}
+  #arVideo.env{transform:none}
+  body.ar #arVideo{display:block}
+  #gl{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+  #vignette{position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(ellipse at 50% 42%, transparent 52%, rgba(0,0,0,.34) 100%)}
+  body.ar #vignette{display:none}
+  #leaderSvg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:3}
+  #leaderSvg line{stroke:var(--acc);stroke-width:1}
+  #leaderSvg circle{fill:none;stroke:var(--acc);stroke-width:1}
+
+  /* ---------- annotation label ---------- */
+  #anno{position:fixed;left:0;top:0;z-index:4;pointer-events:none;min-width:190px;max-width:250px;
+    background:rgba(15,13,11,.88);border:1px solid var(--hair);padding:11px 13px 12px;
+    opacity:0;transform:translate(-9999px,-9999px);transition:opacity .16s ease}
+  #anno.show{opacity:1}
+  #anno .a-k{font-size:9.5px;letter-spacing:.26em;color:var(--acc)}
+  #anno .a-v{font:italic 500 17px/1.25 var(--serif);margin:5px 0 4px}
+  #anno .a-d{font-size:10px;line-height:1.55;color:var(--mut);letter-spacing:.02em}
+
+  /* ---------- header ---------- */
+  #hdr{position:fixed;top:0;left:0;right:0;z-index:6;display:flex;justify-content:space-between;align-items:flex-start;
+    padding:22px 30px;pointer-events:none;opacity:0;transform:translateY(-8px);transition:all .7s ease .15s}
+  body.ready #hdr{opacity:1;transform:none}
+  body.ar #hdr{opacity:0;pointer-events:none}
+  .wordmark{font:600 21px var(--serif);letter-spacing:.34em;padding-left:.34em}
+  .brand-sub{font-size:9px;letter-spacing:.26em;color:var(--mut);margin-top:6px}
+  .hright{display:flex;gap:18px;align-items:flex-start;pointer-events:auto}
+  .meta{text-align:right}
+  .meta .ref{font-size:9.5px;letter-spacing:.2em;color:var(--mut)}
+  .meta .price{font:500 25px var(--serif);margin:5px 0 4px;font-variant-numeric:tabular-nums;transition:color .3s}
+  .meta .price.flash{color:var(--acc)}
+  .meta .clockline{font-size:9px;letter-spacing:.18em;color:var(--mut)}
+  .iconbtn{width:38px;height:38px;border:1px solid var(--hair);display:grid;place-items:center;transition:border-color .2s,background .2s}
+  .iconbtn:hover{border-color:var(--acc)}
+
+  /* ---------- side rail ---------- */
+  #side{position:fixed;right:28px;top:50%;transform:translateY(-50%);z-index:6;display:flex;flex-direction:column;gap:10px;align-items:flex-end;
+    opacity:0;transition:all .7s ease .3s}
+  body.ready #side{opacity:1}
+  body.ar #side{display:none}
+  .pillbtn{display:flex;align-items:center;gap:9px;border:1px solid var(--acc);color:var(--acc);
+    padding:11px 16px;font-size:10px;letter-spacing:.22em;transition:background .2s,color .2s}
+  .pillbtn:hover{background:var(--acc);color:#141210}
+  .sqbtn{width:38px;height:38px;border:1px solid var(--hair);display:grid;place-items:center;transition:border-color .2s}
+  .sqbtn:hover{border-color:var(--acc)}
+
+  /* ---------- edge caption ---------- */
+  #edge{position:fixed;left:26px;bottom:150px;z-index:5;writing-mode:vertical-rl;transform:rotate(180deg);
+    font-size:9px;letter-spacing:.34em;color:var(--mut);opacity:0;transition:opacity .8s ease .5s}
+  body.ready #edge{opacity:1}
+  body.ar #edge{display:none}
+
+  /* ---------- configurator rail ---------- */
+  #rail{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;justify-content:center;
+    padding:16px 20px 20px;background:var(--panel);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+    border-top:1px solid var(--hair);overflow-x:auto;scrollbar-width:none;
+    opacity:0;transform:translateY(12px);transition:all .7s ease .25s}
+  #rail::-webkit-scrollbar{display:none}
+  body.ready #rail{opacity:1;transform:none}
+  body.ar #rail{display:none}
+  #rail.lock{pointer-events:none;opacity:.75}
+  .group{padding:2px 26px;border-left:1px solid var(--hair);flex:none}
+  .group:first-child{border-left:none}
+  .glabel{font-size:9px;letter-spacing:.26em;color:var(--mut)}
+  .glabel .gindex{color:var(--acc)}
+  .gname{font:italic 500 14.5px/1 var(--serif);margin:8px 0 11px;min-height:15px;white-space:nowrap}
+  .gname .delta{font:400 9.5px var(--mono);color:var(--mut);letter-spacing:.06em;margin-left:7px}
+  .gname.bump{animation:bump .4s ease}
+  @keyframes bump{0%{opacity:0;transform:translateY(5px)}100%{opacity:1;transform:none}}
+  .swatches{display:flex;gap:9px}
+  .sw{width:41px;height:41px;border-radius:50%;border:1px solid var(--hair);padding:0;overflow:hidden;flex:none;
+    transition:transform .18s,border-color .18s,box-shadow .18s;background:#0a0908}
+  .sw img{width:100%;height:100%;display:block;border-radius:50%}
+  .sw:hover{transform:translateY(-3px)}
+  .sw.on{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc);transform:translateY(-3px)}
+
+  /* ---------- spec panel ---------- */
+  #spec{position:fixed;top:0;right:0;bottom:0;width:330px;z-index:8;background:rgba(15,13,11,.94);
+    border-left:1px solid var(--hair);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+    transform:translateX(102%);transition:transform .45s cubic-bezier(.22,.9,.3,1);display:flex;flex-direction:column}
+  #spec.open{transform:none}
+  .sp-h{display:flex;justify-content:space-between;align-items:center;padding:24px 24px 18px;border-bottom:1px solid var(--hair)}
+  .sp-h span{font-size:10px;letter-spacing:.3em;color:var(--acc)}
+  #specBody{padding:8px 24px 24px;overflow-y:auto}
+  .sp-row{display:flex;justify-content:space-between;gap:14px;padding:11px 0;border-bottom:1px solid rgba(234,228,213,.08);font-size:10.5px}
+  .sp-row .k{color:var(--mut);letter-spacing:.14em;flex:none}
+  .sp-row .v{text-align:right;line-height:1.5}
+  .sp-row.total{border-bottom:none;border-top:1px solid var(--acc);margin-top:10px;padding-top:15px}
+  .sp-row.total .v{font:500 19px var(--serif);color:var(--acc)}
+
+  /* ---------- AR UI ---------- */
+  #arUI{display:none;position:fixed;inset:0;z-index:7;pointer-events:none}
+  body.ar #arUI{display:block}
+  body.ar.manual #rotGrp{display:flex}
+  .ar-top{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:22px 30px}
+  .ar-title{font:600 15px var(--serif);letter-spacing:.3em}
+  #arStatus{display:flex;align-items:center;gap:9px;font-size:9.5px;letter-spacing:.22em;color:var(--mut);
+    border:1px solid var(--hair);padding:9px 13px;background:rgba(15,13,11,.6)}
+  #arStatus .dot{width:7px;height:7px;border-radius:50%;background:var(--mut);animation:pulse 1.4s infinite}
+  #arStatus.locked .dot{background:var(--acc);animation:none}
+  @keyframes pulse{0%,100%{opacity:.25}50%{opacity:1}}
+  .ar-hint{position:absolute;left:50%;bottom:118px;transform:translateX(-50%);font-size:10px;letter-spacing:.2em;
+    color:var(--mut);white-space:nowrap}
+  .ar-bottom{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:center;align-items:center;gap:16px;padding:26px}
+  .ar-bottom>*{pointer-events:auto}
+  .circbtn{width:46px;height:46px;border-radius:50%;border:1px solid var(--hair);display:grid;place-items:center;
+    background:rgba(15,13,11,.55);transition:border-color .2s}
+  .circbtn:hover{border-color:var(--acc)}
+  .circbtn.sm{width:40px;height:40px}
+  #rotGrp{display:none;gap:8px}
+  #shutter{width:64px;height:64px;border-radius:50%;border:2px solid var(--ink);display:grid;place-items:center;transition:transform .12s}
+  #shutter span{width:50px;height:50px;border-radius:50%;background:var(--ink);transition:transform .12s}
+  #shutter:active span{transform:scale(.82)}
+  body.ar #gl{cursor:grab}
+  body.ar.manual #gl{cursor:grab}
+
+  /* ---------- flash / toast / intro ---------- */
+  #flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:20}
+  #flash.go{animation:flash .5s ease}
+  @keyframes flash{0%{opacity:.85}100%{opacity:0}}
+  #toasts{position:fixed;left:50%;bottom:132px;transform:translateX(-50%);z-index:21;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+  .toast{background:rgba(15,13,11,.92);border:1px solid var(--hair);border-left:2px solid var(--acc);
+    padding:11px 18px;font-size:10px;letter-spacing:.16em;animation:toastIn .3s ease;white-space:nowrap}
+  .toast.out{opacity:0;transition:opacity .4s}
+  @keyframes toastIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  #intro{position:fixed;inset:0;z-index:30;background:var(--bg);display:grid;place-items:center;transition:opacity .8s ease,visibility .8s}
+  #intro.done{opacity:0;visibility:hidden}
+  .i-box{text-align:center}
+  .i-mark{font:600 30px var(--serif);letter-spacing:.42em;padding-left:.42em}
+  .i-line{height:1px;background:var(--acc);width:0;margin:20px auto;animation:iline 1.4s ease forwards .2s}
+  @keyframes iline{to{width:190px}}
+  .i-sub{font-size:9px;letter-spacing:.3em;color:var(--mut)}
+
+  @media (max-width:880px){
+    #hdr{padding:16px 18px}.wordmark{font-size:17px}.meta .price{font-size:20px}
+    #side{right:16px;top:auto;bottom:150px;transform:none}
+    .group{padding:2px 16px}.gname{font-size:13px}
+    #edge{display:none}.ar-top{padding:16px 18px}
+  }
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <video id="arVideo" playsinline muted></video>
+  <canvas id="gl"></canvas>
+  <svg id="leaderSvg"><line id="ldLine" x1="0" y1="0" x2="0" y2="0"/><circle id="ldDot" r="3.5" cx="-9" cy="-9"/></svg>
+  <div id="vignette"></div>
+</div>
+
+<div id="anno"><div class="a-k" id="aK"></div><div class="a-v" id="aV"></div><div class="a-d" id="aD"></div></div>
+
+<header id="hdr">
+  <div class="brand">
+    <div class="wordmark">AURELINE</div>
+    <div class="brand-sub">ATELIER CONFIGURATOR · CAL. AU-71</div>
+  </div>
+  <div class="hright">
+    <div class="meta">
+      <div class="ref" id="refEl">REF. —</div>
+      <div class="price" id="priceEl">€ 12,400</div>
+      <div class="clockline" id="clockEl">LOCAL —</div>
+    </div>
+    <button class="iconbtn" id="sndBtn" title="Sound">
+      <i data-lucide="volume-2" id="icoSndOn"></i><i data-lucide="volume-x" id="icoSndOff" style="display:none"></i>
+    </button>
+  </div>
+</header>
+
+<aside id="side">
+  <button class="pillbtn" id="arBtn"><i data-lucide="watch"></i><span>WRIST TRY-ON</span></button>
+  <button class="sqbtn" id="specBtn" title="Specification"><i data-lucide="scroll-text"></i></button>
+  <button class="sqbtn" id="resetBtn" title="Reset view"><i data-lucide="locate-fixed"></i></button>
