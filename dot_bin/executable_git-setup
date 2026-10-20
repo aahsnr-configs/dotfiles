@@ -3,21 +3,22 @@
 # Multi-Account GitHub SSH and Git Setup Script
 #
 # Accounts managed: configs, personal, work, common, and halcyon
-# The work and halcyon identities are crossed by design: "aahsnr-work"
-# <aahsnr@duck.com> serves ~/Git/halcyon, and "halcyon-linux"
-# <aahsnr041@proton.me> serves ~/Git/work
+# Each account serves the ~/Git/<name> folder that matches it: "aahsnr-work"
+# <aahsnr@duck.com> serves ~/Git/work, and "halcyon-linux"
+# <aahsnr041@proton.me> serves ~/Git/halcyon.
 #
 # This script configures SSH keys (Ed25519), Git settings (with GPG commit
 # signing), and GitHub CLI for multiple GitHub accounts with proper isolation
 # and automatic identity switching based on directory location.
 #
 # Features:
-# - Full cleanup of SSH keys and files, Git config, GitHub CLI logins, and
+# - Full cleanup of SSH keys and files (authorized_keys and known_hosts are
+#   kept), Git config, GitHub CLI logins, and
 #   GPG keys you own (after an explicit confirmation)
 # - Every removed item is backed up first, preserving its path, into a
 #   private (chmod 700) backup directory; GPG keys are exported one by one
-# - OS detection: Arch Linux (pacman) and Gentoo (emerge); offers to install
-#   missing required packages
+# - Distro-neutral dependency checks (missing tools are reported for manual
+#   installation; the script never invokes a package manager or sudo)
 # - Generates Ed25519 SSH keys - one per account (optional passphrase)
 # - Generates Ed25519/Cv25519 GPG keys - one per account (passphrase protected)
 #   used exclusively for commit and tag signing
@@ -32,12 +33,15 @@
 # - Comprehensive error handling and validation
 # - Plain ANSI color output (respects NO_COLOR; fish shell compatible)
 #
-# Requirements: bash >= 4.4, git, ssh, ssh-keygen, gpg, gpgconf, gh (optional)
-# Compatible with: Arch Linux, Gentoo Linux
+# Requirements: Linux, bash >= 4.4, git >= 2.37, OpenSSH, GnuPG, pinentry;
+#               gh (optional); an interactive terminal
+#
+# Usage: git-setup [-h|--help] [-V|--version]
+# Compatible with: Linux distributions
 # Shell Compatibility: bash (works when executed from fish shell)
 #
 # License: GPL-3.0
-# Version: 5.6.0
+# Version: 6.1.0
 
 if ((BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 4))); then
     echo "Error: bash >= 4.4 is required (found ${BASH_VERSION})." >&2
@@ -46,66 +50,48 @@ fi
 
 # -E makes the ERR trap fire inside functions as well
 set -Eeuo pipefail
-shopt -s nullglob
+# Make command substitutions inherit errexit instead of silently swallowing
+# failures (bash >= 4.4)
+shopt -s inherit_errexit
+: "${HOME:?HOME must be set}"
+umask 077
 
 # =============================================================================
 # CONSTANTS AND CONFIGURATION
 # =============================================================================
 
-readonly SCRIPT_VERSION="5.6.0"
-SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
+readonly SCRIPT_VERSION="6.1.0"
+SCRIPT_NAME="${BASH_SOURCE[0]##*/}"
 readonly SCRIPT_NAME
 readonly SSH_DIR="${HOME}/.ssh"
 readonly GIT_CONFIG="${HOME}/.gitconfig"
-readonly GIT_XDG_CONFIG="${HOME}/.config/git"
+readonly GIT_CONFIG_GLOBAL_WAS_SET="${GIT_CONFIG_GLOBAL+x}"
+readonly XDG_CONFIG_HOME_WAS_SET="${XDG_CONFIG_HOME+x}"
+readonly GH_CONFIG_DIR_WAS_SET="${GH_CONFIG_DIR+x}"
+readonly GNUPGHOME_WAS_SET="${GNUPGHOME+x}"
+readonly XDG_CONFIG_HOME_OVERRIDE="${XDG_CONFIG_HOME:-}"
+readonly GH_CONFIG_DIR_OVERRIDE="${GH_CONFIG_DIR:-}"
+readonly XDG_CONFIG_HOME="${HOME}/.config"
+readonly GIT_XDG_CONFIG="${XDG_CONFIG_HOME}/git"
 readonly GIT_BASE_DIR="${HOME}/Git"
-readonly GH_CONFIG_DIR="${HOME}/.config/gh"
-BACKUP_DIR="${HOME}/.config_backups/github_setup_$(date +%Y%m%d_%H%M%S)"
-readonly BACKUP_DIR
+readonly GH_CONFIG_DIR="${XDG_CONFIG_HOME}/gh"
+readonly BACKUP_ROOT="${HOME}/.config_backups"
+BACKUP_DIR=""
 readonly GNUPG_DIR="${HOME}/.gnupg"
 readonly GPG_BACKUP_DIR="${GNUPG_DIR}/backups"
+
+# Entries in ~/.ssh that the cleanup never deletes: deleting authorized_keys
+# can lock you out of this machine, and known_hosts holds host verification
+readonly -a SSH_PRESERVE=(agent authorized_keys authorized_keys2 known_hosts known_hosts.old)
 
 # Naming scheme for managed SSH keys and host aliases
 readonly SSH_KEY_PREFIX="id_ed25519_aahsnr_"
 readonly SSH_HOST_PREFIX="github.com-aahsnr-"
 
-# Detect operating system
-OS_TYPE="$(uname -s)"
-readonly OS_TYPE
-if [[ "${OS_TYPE}" == "Darwin" ]]; then
-    readonly IS_MACOS="true"
-else
-    readonly IS_MACOS="false"
-fi
-
-# Detect Linux distribution
-detect_distro() {
-    if [[ -f /etc/arch-release ]]; then
-        echo "arch"
-    elif [[ -f /etc/gentoo-release ]]; then
-        echo "gentoo"
-    elif [[ -f /etc/os-release ]]; then
-        # Source in a subshell so os-release variables don't leak into the script
-        local ids
-        # shellcheck source=/dev/null
-        ids="$(
-            . /etc/os-release
-            echo "${ID:-} ${ID_LIKE:-}"
-        )"
-        case " ${ids} " in
-        *" arch "*) echo "arch" ;;
-        *" gentoo "*) echo "gentoo" ;;
-        *) echo "unknown" ;;
-        esac
-    else
-        echo "unknown"
-    fi
-}
-DISTRO="$(detect_distro)"
-readonly DISTRO
-
-# Minimum required Git version (includeIf support arrived in 2.13)
-readonly MIN_GIT_VERSION="2.13"
+# Minimum required Git version. includeIf needs 2.13, but the generated config
+# also relies on init.defaultBranch (2.28) and push.autoSetupRemote (2.37);
+# older versions would silently ignore those keys.
+readonly MIN_GIT_VERSION="2.37"
 
 # Color codes (only when stdout is a terminal and NO_COLOR is not set)
 if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
@@ -137,26 +123,28 @@ declare -A GIT_NAMES=(
     ["halcyon"]="halcyon-linux"
 )
 
-# Each identity is assigned the directory below. The work and halcyon
-# identities are crossed relative to the directory names: the "aahsnr-work"
-# identity (<aahsnr@duck.com>) serves ~/Git/halcyon, and the
-# "halcyon-linux" identity (<aahsnr041@proton.me>) serves ~/Git/work
+# Each identity serves the directory named after it: "aahsnr-work"
+# (<aahsnr@duck.com>) serves ~/Git/work, and "halcyon-linux"
+# (<aahsnr041@proton.me>) serves ~/Git/halcyon.
 declare -A GIT_DIRS=(
+    ["configs"]="${GIT_BASE_DIR}/configs"
     ["personal"]="${GIT_BASE_DIR}/personal"
-    ["work"]="${GIT_BASE_DIR}/halcyon"
+    ["work"]="${GIT_BASE_DIR}/work"
     ["common"]="${GIT_BASE_DIR}/common"
-    ["halcyon"]="${GIT_BASE_DIR}/work"
+    ["halcyon"]="${GIT_BASE_DIR}/halcyon"
 )
 
 # Processing / display order for all accounts (configs is the global default)
 readonly -a ACCOUNT_ORDER=(configs personal work common halcyon)
 
-# Accounts that get their own directory under ~/Git with an includeIf config
-readonly -a DIR_ACCOUNTS=(personal work common halcyon)
+# Account directories whose only managed item is their .gitconfig
+readonly -a DIR_ACCOUNTS=(configs personal work common halcyon)
 
 # Temporary files/directories removed on exit
 declare -a TEMP_FILES=()
-declare -a TEMP_DIRS=()
+declare -a BACKUP_TARGETS=()
+declare -a DELETE_TARGETS=()
+declare -a GPG_FINGERPRINTS=()
 
 # Number of items removed by the cleanup step
 ITEMS_REMOVED=0
@@ -190,17 +178,21 @@ print_header() {
 # Like printf '%b' but takes a single string (so text is never a format string)
 say() { printf '%b' "$1"; }
 
+# confirm PROMPT [Y|N]  -- second argument is the default answer (default: N)
 confirm() {
-    local prompt="$1"
-    local response
+    local prompt="$1" default="${2:-N}" hint response
+    if [[ "${default}" == [Yy] ]]; then hint="Y/n"; else hint="y/N"; fi
     while true; do
-        if ! read -r -p "$(printf '%b' "${YELLOW}${prompt} [y/N]: ${NC}")" response; then
+        if ! read -r -p "$(printf '%b' "${YELLOW}${prompt} [${hint}]: ${NC}")" response; then
             echo ""
             return 1 # EOF on stdin counts as "no"
         fi
         case "${response}" in
         [Yy] | [Yy][Ee][Ss]) return 0 ;;
-        [Nn] | [Nn][Oo] | "") return 1 ;;
+        [Nn] | [Nn][Oo]) return 1 ;;
+        "")
+            if [[ "${default}" == [Yy] ]]; then return 0; else return 1; fi
+            ;;
         *) echo "Please answer yes or no." ;;
         esac
     done
@@ -208,28 +200,55 @@ confirm() {
 
 command_exists() { command -v "$1" &>/dev/null; }
 
-# True if version $1 >= version $2
-version_ge() {
-    printf '%s\n%s\n' "${2}" "${1}" | sort -V -C 2>/dev/null
-}
-
 ssh_key_file() { echo "${SSH_DIR}/${SSH_KEY_PREFIX}$1"; }
+
+validate_ssh_key_pair() {
+    local private_key="$1" private_fp public_fp
+    [[ -f "${private_key}" && ! -L "${private_key}" && -f "${private_key}.pub" && ! -L "${private_key}.pub" ]] || return 1
+    private_fp="$(ssh-keygen -lf "${private_key}" 2>/dev/null | awk 'NR == 1 { print $2 }')" || return 1
+    public_fp="$(ssh-keygen -lf "${private_key}.pub" 2>/dev/null | awk 'NR == 1 { print $2 }')" || return 1
+    [[ -n "${private_fp}" && "${private_fp}" == "${public_fp}" ]]
+}
 
 # Fail early when the account maps drift apart (e.g. an account added to
 # ACCOUNTS but not GIT_NAMES), instead of aborting mid-run under set -u
+# Fail early when the account maps drift apart (e.g. an account added to
+# ACCOUNTS but not GIT_NAMES), or when a value could not be written safely into
+# the GPG batch file or the Git/SSH config files that are generated from it.
 validate_account_config() {
-    local account email dir
-    local seen_emails="" seen_dirs=""
+    local account email name dir
+    local -A seen_emails=() seen_dirs=()
+    local name_re='^[A-Za-z0-9._ -]+$'
+    local email_re='^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+$'
 
     for account in "${ACCOUNT_ORDER[@]}"; do
-        if [[ -z "${ACCOUNTS[${account}]:-}" ]]; then
+        if [[ ! "${account}" =~ ^[a-z0-9_-]+$ ]]; then
+            print_error "Account name '${account}' may only contain a-z, 0-9, '_' and '-'"
+            return 1
+        fi
+        email="${ACCOUNTS[${account}]:-}"
+        name="${GIT_NAMES[${account}]:-}"
+        if [[ -z "${email}" ]]; then
             print_error "Account '${account}' is missing from ACCOUNTS"
             return 1
         fi
-        if [[ -z "${GIT_NAMES[${account}]:-}" ]]; then
+        if [[ -z "${name}" ]]; then
             print_error "Account '${account}' is missing from GIT_NAMES"
             return 1
         fi
+        if [[ ! "${email}" =~ ${email_re} ]]; then
+            print_error "Invalid e-mail address for '${account}': ${email}"
+            return 1
+        fi
+        if [[ ! "${name}" =~ ${name_re} ]]; then
+            print_error "Invalid Git name for '${account}': '${name}' (allowed: letters, digits, space . _ -)"
+            return 1
+        fi
+        if [[ -n "${seen_emails[${email}]:-}" ]]; then
+            print_error "Duplicate e-mail '${email}' (account '${account}')"
+            return 1
+        fi
+        seen_emails["${email}"]=1
     done
 
     for account in "${DIR_ACCOUNTS[@]}"; do
@@ -242,20 +261,19 @@ validate_account_config() {
             return 1
         fi
         dir="${GIT_DIRS[${account}]}"
-        if [[ " ${seen_dirs} " == *" ${dir} "* ]]; then
+        if [[ "${dir}" == *[\"\\]* || "${dir}" == *$'\n'* ]]; then
+            print_error "Git directory for '${account}' contains a quote, backslash or newline: ${dir}"
+            return 1
+        fi
+        if [[ ! -d "${dir}" ]]; then
+            print_error "Managed Git directory does not exist: ${dir}"
+            return 1
+        fi
+        if [[ -n "${seen_dirs[${dir}]:-}" ]]; then
             print_error "Duplicate Git directory '${dir}' (account '${account}')"
             return 1
         fi
-        seen_dirs+=" ${dir}"
-    done
-
-    for account in "${ACCOUNT_ORDER[@]}"; do
-        email="${ACCOUNTS[${account}]}"
-        if [[ " ${seen_emails} " == *" ${email} "* ]]; then
-            print_error "Duplicate e-mail '${email}' (account '${account}')"
-            return 1
-        fi
-        seen_emails+=" ${email}"
+        seen_dirs["${dir}"]=1
     done
 
     return 0
@@ -263,14 +281,10 @@ validate_account_config() {
 
 # Create the backup directory, private to the current user (it will hold
 # private keys and tokens)
-ensure_backup_dir() {
-    if [[ ! -d "${BACKUP_DIR}" ]]; then
-        (
-            umask 077
-            mkdir -p "${BACKUP_DIR}"
-        )
-    fi
-    chmod 700 "${BACKUP_DIR}"
+create_backup_dir() {
+    mkdir -p -- "${BACKUP_ROOT}"
+    BACKUP_DIR="$(mktemp -d "${BACKUP_ROOT}/github_setup.XXXXXXXXXX")"
+    chmod 700 -- "${BACKUP_DIR}"
 }
 
 # Back up a file or directory into BACKUP_DIR, preserving its path relative to
@@ -282,39 +296,31 @@ backup_item() {
         return 0
     fi
 
-    ensure_backup_dir
+    [[ -n "${BACKUP_DIR}" ]] || {
+        print_error "Backup directory has not been created"
+        return 1
+    }
 
-    local rel dest
-    if [[ "${item}" == "${HOME}/"* ]]; then
-        rel="${item#"${HOME}"/}"
+    local rel dest parent base physical_home
+    parent="$(cd -- "$(dirname -- "${item}")" && pwd -P)" || return 1
+    base="${item##*/}"
+    physical_home="$(cd -- "${HOME}" && pwd -P)" || return 1
+    if [[ "${parent}" == "${physical_home}" ]]; then
+        rel="${base}"
+    elif [[ "${parent}" == "${physical_home}/"* ]]; then
+        rel="${parent#"${physical_home}"/}/${base}"
     else
-        rel="_absolute${item}"
+        rel="_absolute${parent}/${base}"
     fi
     dest="${BACKUP_DIR}/${rel}"
 
-    mkdir -p "$(dirname "${dest}")"
-    if cp -a "${item}" "${dest}"; then
+    mkdir -p -- "$(dirname -- "${dest}")"
+    if cp -a -- "${item}" "${dest}" && [[ -e "${dest}" || -L "${dest}" ]]; then
         print_success "Backed up ${item} → ${dest}"
         return 0
     fi
     print_error "Failed to back up ${item}"
     return 1
-}
-
-# Back up a path and then delete it. If the backup fails, the path is kept.
-remove_with_backup() {
-    local path="$1"
-    if [[ ! -e "${path}" && ! -L "${path}" ]]; then
-        return 0
-    fi
-    if backup_item "${path}"; then
-        rm -rf -- "${path}"
-        print_success "Removed: ${path}"
-        ITEMS_REMOVED=$((ITEMS_REMOVED + 1))
-    else
-        print_warning "Backup failed - leaving ${path} in place"
-    fi
-    return 0
 }
 
 # =============================================================================
@@ -324,12 +330,11 @@ remove_with_backup() {
 cleanup() {
     local exit_code=$?
     local item
-    for item in "${TEMP_FILES[@]}"; do
-        rm -f -- "${item}" 2>/dev/null || true
-    done
-    for item in "${TEMP_DIRS[@]}"; do
-        rm -rf -- "${item}" 2>/dev/null || true
-    done
+    if [[ ${#TEMP_FILES[@]} -gt 0 ]]; then
+        for item in "${TEMP_FILES[@]}"; do
+            rm -f -- "${item}" 2>/dev/null || true
+        done
+    fi
     if [[ ${exit_code} -ne 0 ]]; then
         print_error "Script exited with error code ${exit_code}"
     fi
@@ -339,7 +344,8 @@ cleanup() {
 error_handler() {
     local line_number="$1"
     local exit_code="$2"
-    print_error "Error on line ${line_number}: command failed with exit code ${exit_code}"
+    local failed_command="$3"
+    print_error "Error on line ${line_number}: '${failed_command}' failed with exit code ${exit_code}"
 }
 
 on_signal() {
@@ -351,147 +357,157 @@ on_signal() {
 trap cleanup EXIT
 trap 'on_signal 130' INT
 trap 'on_signal 143' TERM
-trap 'error_handler ${LINENO} $?' ERR
-
-# =============================================================================
-# DISTRO-SPECIFIC PACKAGE INSTALLATION
-# =============================================================================
-
-# Prints "<arch package> <gentoo package>" for a missing command
-pkg_for_cmd() {
-    case "$1" in
-    git) echo "git dev-vcs/git" ;;
-    ssh | ssh-keygen) echo "openssh net-misc/openssh" ;;
-    gpg | gpgconf) echo "gnupg app-crypt/gnupg" ;;
-    *) echo "" ;;
-    esac
-}
-
-install_packages() {
-    local -a sudo_cmd=()
-    if [[ ${EUID} -ne 0 ]]; then
-        if command_exists sudo; then
-            sudo_cmd=(sudo)
-        else
-            print_error "Not root and 'sudo' is unavailable; cannot install packages"
-            return 1
-        fi
-    fi
-
-    case "${DISTRO}" in
-    arch)
-        print_info "Installing via pacman: $*"
-        "${sudo_cmd[@]}" pacman -S --noconfirm --needed "$@"
-        ;;
-    gentoo)
-        print_info "Installing via emerge: $*"
-        "${sudo_cmd[@]}" emerge --ask=n --quiet-build "$@"
-        ;;
-    *)
-        print_warning "Unknown distro '${DISTRO}'. Please install manually: $*"
-        return 1
-        ;;
-    esac
-}
+trap 'on_signal 129' HUP
+trap 'error_handler "${LINENO}" "$?" "${BASH_COMMAND}"' ERR
 
 # =============================================================================
 # COMPREHENSIVE CLEANUP (full SSH, Git, GPG, and GitHub CLI reset)
 # =============================================================================
 
-# Export every secret key this user owns, then delete it from the keyring.
-# A key is only deleted after its export succeeded, so a forgotten passphrase
-# leaves that key in place instead of losing it. Public keys without a secret
-# half (e.g. imported for signature verification) are never touched.
-backup_and_remove_gpg_keys() {
-    print_info "Backing up and removing GPG keys..."
+collect_cleanup_targets() {
+    local entry keep account preserved
+    local -a entries=()
+    DELETE_TARGETS=()
+    BACKUP_TARGETS=()
 
-    # pinentry needs the controlling terminal for export passphrase prompts
+    if [[ -d "${SSH_DIR}" ]]; then
+        # find (rather than a dotglob pattern) keeps the shell's globbing
+        # options untouched and handles unusual file names safely
+        mapfile -d '' -t entries < <(find -H "${SSH_DIR}" -mindepth 1 -maxdepth 1 -print0)
+        for entry in "${entries[@]}"; do
+            preserved=false
+            for keep in "${SSH_PRESERVE[@]}"; do
+                if [[ "${entry##*/}" == "${keep}" ]]; then
+                    preserved=true
+                    break
+                fi
+            done
+            if [[ "${preserved}" == false ]]; then
+                DELETE_TARGETS+=("${entry}")
+            fi
+        done
+    fi
+
+    DELETE_TARGETS+=("${GIT_CONFIG}" "${GIT_XDG_CONFIG}" "${GH_CONFIG_DIR}")
+    for account in "${DIR_ACCOUNTS[@]}"; do
+        DELETE_TARGETS+=("${GIT_DIRS[${account}]}/.gitconfig")
+    done
+
+    BACKUP_TARGETS=("${DELETE_TARGETS[@]}" "${GNUPG_DIR}/gpg-agent.conf")
+}
+
+# Stage all GPG recovery data before deleting any key.
+backup_gpg_keyring() {
+    local listing gpg_backup fpr dest
+    local secret_count
+    local -a fingerprints=()
+
     if tty -s 2>/dev/null; then
         GPG_TTY="$(tty)"
         export GPG_TTY
     fi
 
-    local -a fingerprints=()
-    local fpr
-    while IFS= read -r fpr; do
-        if [[ -n "${fpr}" ]]; then
-            fingerprints+=("${fpr}")
-        fi
-    done < <(
-        gpg --list-secret-keys --with-colons --fingerprint 2>/dev/null |
-            awk -F: '$1 == "sec" { have_primary = 0; next }
-                    $1 == "fpr" && !have_primary { print $10; have_primary = 1 }' || true
+    if ! listing="$(gpg --list-secret-keys --with-colons --fingerprint 2>/dev/null)"; then
+        print_error "Could not list GPG secret keys; refusing cleanup"
+        return 1
+    fi
+
+    mapfile -t fingerprints < <(
+        awk -F: '$1 == "sec" { primary = 1; next }
+                 $1 == "ssb" { primary = 0; next }
+                 $1 == "fpr" && primary { print $10; primary = 0 }' <<<"${listing}"
     )
-
-    if [[ ${#fingerprints[@]} -eq 0 ]]; then
-        print_info "No GPG secret keys found"
-        return 0
+    secret_count="$(awk -F: '$1 == "sec" { count++ } END { print count + 0 }' <<<"${listing}")"
+    if [[ "${secret_count}" -ne ${#fingerprints[@]} ]]; then
+        print_error "Could not parse every GPG secret-key fingerprint; refusing cleanup"
+        return 1
+    fi
+    GPG_FINGERPRINTS=()
+    if [[ ${#fingerprints[@]} -gt 0 ]]; then
+        GPG_FINGERPRINTS=("${fingerprints[@]}")
     fi
 
-    local gpg_backup="${BACKUP_DIR}/gpg"
-    mkdir -p "${gpg_backup}"
-    chmod 700 "${gpg_backup}"
+    gpg_backup="${BACKUP_DIR}/gpg"
+    mkdir -p -- "${gpg_backup}"
+    chmod 700 -- "${gpg_backup}"
 
-    local removed_keys=0 kept_keys=0 dest
-    for fpr in "${fingerprints[@]}"; do
-        dest="${gpg_backup}/secret-key-${fpr}.asc"
-        if (
-            umask 077
-            gpg --yes --armor --output "${dest}" --export-secret-keys "${fpr}"
-        ); then
-            # --delete-secret-and-public-keys exits 0 even when it deletes
-            # nothing, so confirm removal by listing the key again
-            gpg --batch --yes --delete-secret-and-public-keys "${fpr}" 2>/dev/null || true
-            if gpg --list-secret-keys --with-colons "${fpr}" &>/dev/null ||
-                gpg --list-keys --with-colons "${fpr}" &>/dev/null; then
-                print_warning "Backed up ${fpr} but it is still in the keyring"
-                kept_keys=$((kept_keys + 1))
-            else
-                print_success "Backed up and removed GPG key ${fpr}"
-                removed_keys=$((removed_keys + 1))
+    if ! gpg --export-ownertrust >"${gpg_backup}/ownertrust.txt"; then
+        print_error "Could not back up GPG ownertrust; refusing cleanup"
+        return 1
+    fi
+    chmod 600 -- "${gpg_backup}/ownertrust.txt"
+
+    if [[ ${#GPG_FINGERPRINTS[@]} -gt 0 ]]; then
+        for fpr in "${GPG_FINGERPRINTS[@]}"; do
+            dest="${gpg_backup}/secret-key-${fpr}.asc"
+            if ! gpg --yes --armor --output "${dest}" --export-secret-keys "${fpr}" || [[ ! -s "${dest}" ]]; then
+                print_error "Could not back up GPG secret key ${fpr}; refusing cleanup"
+                return 1
             fi
-        else
-            print_warning "Could not export ${fpr}; leaving the key in place (is its passphrase known?)"
-            kept_keys=$((kept_keys + 1))
-        fi
-    done
-
-    # Ownertrust so a restored keyring keeps its trust settings
-    if (
-        umask 077
-        gpg --export-ownertrust >"${gpg_backup}/ownertrust.txt"
-    ) 2>/dev/null; then
-        chmod 600 "${gpg_backup}/ownertrust.txt"
-        print_success "Owner trust backed up: ${gpg_backup}/ownertrust.txt"
-    fi
-
-    ITEMS_REMOVED=$((ITEMS_REMOVED + removed_keys))
-    if [[ ${kept_keys} -gt 0 ]]; then
-        print_warning "${kept_keys} GPG key(s) could not be removed (see above)"
+            chmod 600 -- "${dest}"
+        done
     fi
     return 0
 }
 
+delete_gpg_keyring() {
+    local fpr secret_listing public_listing
+    if [[ ${#GPG_FINGERPRINTS[@]} -eq 0 ]]; then
+        return 0
+    fi
+    for fpr in "${GPG_FINGERPRINTS[@]}"; do
+        if ! gpg --batch --yes --delete-secret-and-public-keys "${fpr}"; then
+            print_error "Could not remove GPG key ${fpr}; recovery data is in ${BACKUP_DIR}/gpg"
+            return 1
+        fi
+    done
+
+    if ! secret_listing="$(gpg --list-secret-keys --with-colons --fingerprint 2>/dev/null)"; then
+        print_error "Could not verify GPG secret-key deletion"
+        return 1
+    fi
+    if ! public_listing="$(gpg --list-keys --with-colons --fingerprint 2>/dev/null)"; then
+        print_error "Could not verify GPG public-key deletion"
+        return 1
+    fi
+
+    for fpr in "${GPG_FINGERPRINTS[@]}"; do
+        if awk -F: -v wanted="${fpr}" '$1 == "fpr" && $10 == wanted { found = 1 } END { exit !found }' <<<"${secret_listing}"; then
+            print_error "GPG secret key ${fpr} remains in the keyring after deletion"
+            return 1
+        fi
+        if awk -F: -v wanted="${fpr}" '$1 == "fpr" && $10 == wanted { found = 1 } END { exit !found }' <<<"${public_listing}"; then
+            print_error "GPG public key ${fpr} remains in the keyring after deletion"
+            return 1
+        fi
+        ITEMS_REMOVED=$((ITEMS_REMOVED + 1))
+        print_success "Backed up and removed GPG key ${fpr}"
+    done
+}
+
 cleanup_all_configs() {
     print_section "Configuration Cleanup"
+    collect_cleanup_targets
 
     print_warning "${BOLD}This will DELETE the following configurations:${NC}"
     echo ""
-    echo "  1. SSH keys managed by this script (${SSH_DIR}/${SSH_KEY_PREFIX}<account>[.pub])"
-    echo "  2. All other files in ${SSH_DIR} (other keys, known_hosts, config)"
-    echo "       (the ${SSH_DIR}/agent socket directory is left in place)"
-    echo "  3. Global Git config:            ${GIT_CONFIG}"
-    echo "  4. XDG Git config directory:     ${GIT_XDG_CONFIG} (whole directory)"
-    echo "  5. Directory Git configs:        <dir>/.gitconfig for each of:"
+    echo "  1. Every entry under ${SSH_DIR}, except: ${SSH_PRESERVE[*]}"
+    echo "       (kept so remote logins and host verification keep working)"
+    echo "  2. Global Git config:            ${GIT_CONFIG}"
+    echo "  3. XDG Git config directory:     ${GIT_XDG_CONFIG} (whole directory)"
+    echo "  4. Directory Git configs:        <dir>/.gitconfig for each of:"
     local account
     for account in "${DIR_ACCOUNTS[@]}"; do
         echo "       ${GIT_DIRS[${account}]}"
     done
-    echo "  6. GitHub CLI config:            ${GH_CONFIG_DIR} (removes ALL gh logins)"
-    echo "  7. GPG keys:                     every secret key you own"
+    echo "       Only each listed .gitconfig is managed; all other folder contents remain untouched."
+    echo "  5. GitHub CLI config:            ${GH_CONFIG_DIR} (removes ALL gh logins)"
+    echo "  6. GPG keys:                     every secret key you own"
+    echo "  7. GPG agent config:             ${GNUPG_DIR}/gpg-agent.conf (backed up, then replaced)"
+    echo "  8. SSH agent:                    all identities loaded in the active agent"
     echo ""
-    echo -e "${CYAN}Everything is backed up first to: ${BACKUP_DIR}${NC}"
-    echo -e "${YELLOW}GPG keys are exported key by key; a key whose passphrase cannot be entered is kept.${NC}"
+    printf '%b\n' "${CYAN}Backups will be stored in a new private directory under ${BACKUP_ROOT}.${NC}"
+    printf '%b\n' "${YELLOW}The reset aborts before deletion if any required backup fails.${NC}"
     echo ""
 
     if ! confirm "Do you want to proceed with the cleanup?"; then
@@ -500,57 +516,38 @@ cleanup_all_configs() {
     fi
 
     echo ""
-    ensure_backup_dir
+    create_backup_dir
     print_success "Backup directory created: ${BACKUP_DIR}"
     echo ""
 
     ITEMS_REMOVED=0
 
-    # 1. Managed SSH keys (exact names only)
-    print_info "Removing managed SSH keys..."
-    local key_file
-    for account in "${ACCOUNT_ORDER[@]}"; do
-        key_file="$(ssh_key_file "${account}")"
-        remove_with_backup "${key_file}"
-        remove_with_backup "${key_file}.pub"
+    local target
+    for target in "${BACKUP_TARGETS[@]}"; do
+        if ! backup_item "${target}"; then
+            print_error "Cleanup aborted; nothing has been deleted. Partial backups: ${BACKUP_DIR}"
+            return 1
+        fi
     done
-
-    # 2. Everything else in ~/.ssh (other keys, known_hosts, config). The
-    #    agent socket directory is kept so a running agent is not stranded
-    if [[ -d "${SSH_DIR}" ]]; then
-        print_info "Removing remaining files in ${SSH_DIR}..."
-        local entry
-        for entry in "${SSH_DIR}"/* "${SSH_DIR}"/.[!.]*; do
-            [[ -e "${entry}" || -L "${entry}" ]] || continue
-            if [[ "${entry}" == "${SSH_DIR}/agent" ]]; then
-                print_info "Keeping SSH agent directory: ${entry}"
-                continue
-            fi
-            remove_with_backup "${entry}"
-        done
+    if ! backup_gpg_keyring; then
+        print_error "Cleanup aborted; no targets have been deleted. Backups: ${BACKUP_DIR}"
+        return 1
     fi
 
-    # Identities from the deleted key files must not linger in a live agent
+    for target in "${DELETE_TARGETS[@]}"; do
+        if [[ -e "${target}" || -L "${target}" ]]; then
+            rm -rf -- "${target}"
+            ITEMS_REMOVED=$((ITEMS_REMOVED + 1))
+            print_success "Removed: ${target}"
+        fi
+    done
+
     if ssh-add -D &>/dev/null; then
-        print_success "Cleared keys held by the running SSH agent"
+        print_success "Cleared identities held by the active SSH agent"
+    else
+        print_info "No active SSH agent identities to clear"
     fi
-
-    # 3. Global gitconfig
-    remove_with_backup "${GIT_CONFIG}"
-
-    # 4. XDG Git config directory (config, ignore, attributes, ...)
-    remove_with_backup "${GIT_XDG_CONFIG}"
-
-    # 5. Directory-specific gitconfigs (managed directories only)
-    for account in "${DIR_ACCOUNTS[@]}"; do
-        remove_with_backup "${GIT_DIRS[${account}]}/.gitconfig"
-    done
-
-    # 6. GitHub CLI config
-    remove_with_backup "${GH_CONFIG_DIR}"
-
-    # 7. GPG keys (exported to the backup before deletion)
-    backup_and_remove_gpg_keys
+    delete_gpg_keyring || return 1
 
     echo ""
     if [[ ${ITEMS_REMOVED} -gt 0 ]]; then
@@ -559,7 +556,7 @@ cleanup_all_configs() {
         print_info "No existing configurations found to remove."
     fi
     print_info "Backups saved to: ${BACKUP_DIR}"
-    print_warning "The backup contains private keys and tokens - delete it once you no longer need it."
+    print_warning "The backup contains private keys and tokens; delete it once you no longer need it."
 
     echo ""
     print_info "Starting fresh configuration setup..."
@@ -571,86 +568,80 @@ cleanup_all_configs() {
 
 check_dependencies() {
     print_section "Checking Dependencies"
-
-    print_info "Detected OS:     ${OS_TYPE}"
-    print_info "Detected distro: ${DISTRO}"
-    echo ""
-
-    local -a required=(git ssh-keygen ssh gpg gpgconf)
+    # Prompts (confirmations, ssh-keygen and GPG passphrases) need a terminal
+    if [[ ! -t 0 ]]; then
+        print_error "stdin is not a terminal; run this script interactively"
+        return 1
+    fi
+    if [[ ${EUID} -eq 0 ]]; then
+        print_error "Run this user-configuration script as a non-root user"
+        return 1
+    fi
+    if [[ ! -d "${HOME}" || "${HOME}" == "/" ]]; then
+        print_error "HOME must name a non-root user's home directory"
+        return 1
+    fi
+    if [[ "${GIT_CONFIG_GLOBAL_WAS_SET}" == x && "${GIT_CONFIG_GLOBAL:-}" != "${GIT_CONFIG}" ]]; then
+        print_error "GIT_CONFIG_GLOBAL points to a non-managed path (${GIT_CONFIG_GLOBAL:-<empty>})"
+        print_info "Unset GIT_CONFIG_GLOBAL or point it to ${GIT_CONFIG} before running this reset script."
+        return 1
+    fi
+    if [[ "${XDG_CONFIG_HOME_WAS_SET}" == x && "${XDG_CONFIG_HOME_OVERRIDE}" != "${XDG_CONFIG_HOME}" ]]; then
+        print_error "XDG_CONFIG_HOME points to a non-managed path (${XDG_CONFIG_HOME_OVERRIDE})"
+        print_info "Unset XDG_CONFIG_HOME or point it to ${XDG_CONFIG_HOME} before running this reset script."
+        return 1
+    fi
+    if [[ "${GH_CONFIG_DIR_WAS_SET}" == x && "${GH_CONFIG_DIR_OVERRIDE}" != "${GH_CONFIG_DIR}" ]]; then
+        print_error "GH_CONFIG_DIR points to a non-managed path (${GH_CONFIG_DIR_OVERRIDE})"
+        print_info "Unset GH_CONFIG_DIR or point it to ${GH_CONFIG_DIR} before running this reset script."
+        return 1
+    fi
+    if [[ "${GNUPGHOME_WAS_SET}" == x && "${GNUPGHOME:-}" != "${GNUPG_DIR}" ]]; then
+        print_error "GNUPGHOME points to a non-managed keyring (${GNUPGHOME:-<empty>})"
+        print_info "Unset GNUPGHOME or point it to ${GNUPG_DIR} before running this reset script."
+        return 1
+    fi
+    local -a required=(git ssh ssh-add ssh-keygen gpg gpgconf gpg-connect-agent awk grep sed find mktemp cp chmod mkdir mv rm date dirname cat tty)
     local -a missing=()
-    local cmd
+    local cmd git_version git_major git_minor min_major min_minor
 
     for cmd in "${required[@]}"; do
-        if command_exists "${cmd}"; then
-            print_success "${cmd} found"
-        else
-            print_error "${cmd} not found"
-            missing+=("${cmd}")
-        fi
+        command_exists "${cmd}" || missing+=("${cmd}")
     done
-
-    # Offer to install what is missing
     if [[ ${#missing[@]} -gt 0 ]]; then
-        echo ""
-        if [[ "${DISTRO}" != "unknown" ]]; then
-            local -A wanted=()
-            local arch_pkg gentoo_pkg
-            for cmd in "${missing[@]}"; do
-                read -r arch_pkg gentoo_pkg <<<"$(pkg_for_cmd "${cmd}")"
-                if [[ "${DISTRO}" == "arch" && -n "${arch_pkg:-}" ]]; then
-                    wanted["${arch_pkg}"]=1
-                elif [[ "${DISTRO}" == "gentoo" && -n "${gentoo_pkg:-}" ]]; then
-                    wanted["${gentoo_pkg}"]=1
-                fi
-            done
-            if [[ ${#wanted[@]} -gt 0 ]] && confirm "Install missing packages (${!wanted[*]})?"; then
-                install_packages "${!wanted[@]}" || print_warning "Package installation failed"
-            fi
-        fi
-
-        local -a still_missing=()
-        for cmd in "${missing[@]}"; do
-            command_exists "${cmd}" || still_missing+=("${cmd}")
-        done
-        if [[ ${#still_missing[@]} -gt 0 ]]; then
-            print_error "Missing required dependencies: ${still_missing[*]}"
-            print_info "Please install them and try again."
-            exit 1
-        fi
+        print_error "Missing required commands: ${missing[*]}"
+        print_info "Install these with your distribution's package manager, then rerun. No packages were installed."
+        return 1
     fi
 
-    # Check Git version
-    local git_version
-    git_version="$(git --version | sed -n 's/[^0-9]*\([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' | head -n 1)"
-    if [[ -z "${git_version}" ]]; then
+    git_version="$(git --version)"
+    if [[ ! "${git_version}" =~ ([0-9]+)\.([0-9]+) ]]; then
         print_error "Could not determine the Git version"
-        exit 1
+        return 1
     fi
-    if version_ge "${git_version}" "${MIN_GIT_VERSION}"; then
-        print_success "Git version ${git_version} (>= ${MIN_GIT_VERSION} required)"
-    else
-        print_error "Git version ${git_version} is too old (>= ${MIN_GIT_VERSION} required)"
-        exit 1
+    git_major="${BASH_REMATCH[1]}"
+    git_minor="${BASH_REMATCH[2]}"
+    min_major="${MIN_GIT_VERSION%%.*}"
+    min_minor="${MIN_GIT_VERSION#*.}"
+    if ((10#${git_major} < 10#${min_major} || (10#${git_major} == 10#${min_major} && 10#${git_minor} < 10#${min_minor}))); then
+        print_error "Git ${git_major}.${git_minor} is too old; ${MIN_GIT_VERSION} or newer is required"
+        return 1
     fi
+    print_success "${git_version} meets the minimum (${MIN_GIT_VERSION})"
 
-    # Check GitHub CLI (optional)
     if command_exists gh; then
-        local gh_version
-        gh_version="$(gh --version 2>/dev/null | head -n 1 | sed -n 's/.*\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' || true)"
-        print_success "GitHub CLI (gh) found: version ${gh_version:-unknown}"
+        print_success "GitHub CLI (gh) found"
     else
         print_warning "GitHub CLI (gh) not found (optional but recommended)"
         print_info "Install from: https://cli.github.com/"
     fi
 
-    # GPG export (cleanup) and key generation both need a pinentry program.
-    # Check it before the cleanup step so a doomed run never deletes keys.
     if pinentry_program &>/dev/null; then
         print_success "pinentry found (needed for GPG passphrase prompts)"
     else
         print_error "No pinentry program found; GPG passphrases cannot be prompted for"
-        print_info "Install pinentry (Arch: 'pinentry', Gentoo: 'app-crypt/pinentry') and re-run."
-        exit 1
+        print_info "Install a pinentry implementation with your distribution's package manager and rerun."
+        return 1
     fi
 
     print_success "All required dependencies satisfied"
@@ -671,21 +662,13 @@ generate_ssh_keys() {
 
     local account key_file
     local -a pending=()
-    local repaired=0
     for account in "${ACCOUNT_ORDER[@]}"; do
         key_file="$(ssh_key_file "${account}")"
-        if [[ -f "${key_file}" && -f "${key_file}.pub" ]]; then
-            print_info "Key for ${account} already exists: ${key_file}"
-        elif [[ -f "${key_file}" ]]; then
-            # A private key without its public half (e.g. after an interrupted
-            # run) would otherwise be skipped and never repaired
-            print_info "Public key missing for ${account}; rebuilding ${key_file}.pub"
-            if ssh-keygen -y -f "${key_file}" >"${key_file}.pub" 2>/dev/null; then
-                chmod 644 "${key_file}.pub"
-                print_success "Rebuilt public key for ${account}"
-                repaired=$((repaired + 1))
+        if [[ -e "${key_file}" || -L "${key_file}" || -e "${key_file}.pub" || -L "${key_file}.pub" ]]; then
+            if validate_ssh_key_pair "${key_file}"; then
+                print_info "Verified existing SSH key pair for ${account}"
             else
-                print_error "Could not rebuild public key for ${account}; remove ${key_file} and re-run"
+                print_error "Existing SSH key pair for ${account} is incomplete or mismatched; refusing to overwrite it"
                 return 1
             fi
         else
@@ -693,19 +676,14 @@ generate_ssh_keys() {
         fi
     done
 
-    if [[ ${repaired} -gt 0 ]]; then
-        print_success "Rebuilt ${repaired} public key(s)"
-    fi
-
     if [[ ${#pending[@]} -eq 0 ]]; then
         print_info "All SSH keys already exist"
         return 0
     fi
 
-    # Default keeps the historical behaviour (no passphrase); answering "y"
-    # lets ssh-keygen prompt for a passphrase for each new key.
+    # Passphrase protection is the default; declining stores unencrypted keys.
     local -a passphrase_args=(-N "")
-    if confirm "Protect the new SSH keys with a passphrase? (recommended)"; then
+    if confirm "Protect the new SSH keys with a passphrase? (recommended)" Y; then
         passphrase_args=()
         print_info "ssh-keygen will prompt for a passphrase for each key."
     else
@@ -724,8 +702,7 @@ generate_ssh_keys() {
             chmod 600 "${key_file}"
             chmod 644 "${key_file}.pub"
 
-            # Use the .pub file so this never triggers a passphrase prompt
-            if ssh-keygen -lf "${key_file}.pub" &>/dev/null; then
+            if validate_ssh_key_pair "${key_file}"; then
                 print_success "Generated key for ${account}"
                 generated=$((generated + 1))
             else
@@ -749,11 +726,12 @@ configure_ssh() {
     print_section "Configuring SSH"
 
     local ssh_config="${SSH_DIR}/config"
-    local temp_config
+    local temp_config account key_file
     temp_config="$(mktemp "${SSH_DIR}/.config.XXXXXX")"
     TEMP_FILES+=("${temp_config}")
 
-    cat >"${temp_config}" <<EOF
+    {
+        cat <<EOF
 # =============================================================================
 # Multi-Account GitHub SSH Configuration
 # Generated by ${SCRIPT_NAME} v${SCRIPT_VERSION}
@@ -765,38 +743,30 @@ Host *
     IdentitiesOnly yes
     ServerAliveInterval 60
     ServerAliveCountMax 3
+
 EOF
-
-    if [[ "${IS_MACOS}" == "true" ]]; then
-        echo "    UseKeychain yes" >>"${temp_config}"
-    fi
-
-    echo "" >>"${temp_config}"
-
-    local account key_file
-    for account in "${ACCOUNT_ORDER[@]}"; do
-        key_file="$(ssh_key_file "${account}")"
-        cat >>"${temp_config}" <<EOF
+        for account in "${ACCOUNT_ORDER[@]}"; do
+            key_file="$(ssh_key_file "${account}")"
+            cat <<EOF
 # GitHub Account: ${account} (${ACCOUNTS[${account}]})
 Host ${SSH_HOST_PREFIX}${account}
     HostName github.com
     User git
-    IdentityFile ${key_file}
+    IdentityFile "${key_file}"
     PreferredAuthentications publickey
 
 EOF
-    done
+        done
+    } >"${temp_config}"
 
-    cat >>"${temp_config}" <<EOF
-# Default GitHub (uses the configs account)
-Host github.com
-    HostName github.com
-    User git
-    IdentityFile $(ssh_key_file configs)
-    PreferredAuthentications publickey
-EOF
+    # No "Host github.com" block: OpenSSH re-parses this file for the resolved
+    # HostName, and because IdentityFile accumulates across that pass, such a
+    # block would append the configs key to every account alias. An unregistered
+    # key would then silently fall back to the configs identity instead of
+    # failing. Plain git@github.com: URLs are routed to the right alias by the
+    # per-directory url.insteadOf rules written in configure_git.
 
-    if mv "${temp_config}" "${ssh_config}"; then
+    if mv -- "${temp_config}" "${ssh_config}"; then
         chmod 600 "${ssh_config}"
         print_success "SSH config created: ${ssh_config}"
     else
@@ -838,14 +808,11 @@ gpg_account_fingerprint() {
     local name="${GIT_NAMES[${account}]:-}"
     local email="${ACCOUNTS[${account}]:-}"
     local want="${name} <${email}>"
-    local fp=""
+    local fp
 
     fp="$(_gpg_primary_fpr "${email}" "${want}")"
     if [[ -z "${fp}" ]]; then
-        fp="$(_gpg_primary_fpr "${email}" "")"
-        if [[ -n "${fp}" ]]; then
-            print_warning "No secret key UID matches '${want}'; using ${fp} for ${account}" >&2
-        fi
+        print_error "No secret GPG key has the expected UID '${want}'"
     fi
     printf '%s\n' "${fp}"
 }
@@ -869,17 +836,31 @@ pinentry_program() {
 configure_git() {
     print_section "Configuring Git"
 
-    local temp_config
+    local temp_config account dir real_dir
+    local -A real_dirs=()
+
+    for account in "${DIR_ACCOUNTS[@]}"; do
+        dir="${GIT_DIRS[${account}]}"
+        if [[ ! -d "${dir}" ]]; then
+            print_error "Git account directory does not exist: ${dir}"
+            return 1
+        fi
+        # Git matches gitdir includes against physical paths, not /home symlinks.
+        real_dirs["${account}"]="$(cd -- "${dir}" && pwd -P)"
+    done
+
+    local configs_signing_key
+    configs_signing_key="$(gpg_account_fingerprint configs)"
+    if [[ -z "${configs_signing_key}" ]]; then
+        print_error "No usable GPG signing key for the configs account"
+        return 1
+    fi
+
     temp_config="$(mktemp "${GIT_CONFIG}.XXXXXX")"
     TEMP_FILES+=("${temp_config}")
 
-    # Resolve the GPG signing key for the default (configs) account
-    local configs_signing_key=""
-    if gpg_key_exists "${ACCOUNTS[configs]}"; then
-        configs_signing_key="$(gpg_account_fingerprint configs)"
-    fi
-
-    cat >"${temp_config}" <<EOF
+    {
+        cat <<EOF
 # =============================================================================
 # Multi-Account Git Configuration
 # Generated by ${SCRIPT_NAME} v${SCRIPT_VERSION}
@@ -888,15 +869,7 @@ configure_git() {
 [user]
     name = ${GIT_NAMES[configs]}
     email = ${ACCOUNTS[configs]}
-EOF
-
-    if [[ -n "${configs_signing_key}" ]]; then
-        cat >>"${temp_config}" <<EOF
     signingkey = ${configs_signing_key}
-EOF
-    fi
-
-    cat >>"${temp_config}" <<'EOF'
 
 [core]
     editor = vim
@@ -928,10 +901,6 @@ EOF
 [gpg]
     program = gpg
 
-EOF
-
-    if [[ -n "${configs_signing_key}" ]]; then
-        cat >>"${temp_config}" <<'EOF'
 [commit]
     gpgsign = true
 
@@ -939,19 +908,17 @@ EOF
     gpgsign = true
 
 EOF
-    fi
-
-    local account dir
-    for account in "${DIR_ACCOUNTS[@]}"; do
-        dir="${GIT_DIRS[${account}]}"
-        cat >>"${temp_config}" <<EOF
-[includeIf "gitdir:${dir}/"]
-    path = ${dir}/.gitconfig
+        for account in "${DIR_ACCOUNTS[@]}"; do
+            real_dir="${real_dirs[${account}]}"
+            cat <<EOF
+[includeIf "gitdir:${real_dir}/"]
+    path = "${real_dir}/.gitconfig"
 
 EOF
-    done
+        done
+    } >"${temp_config}"
 
-    if mv "${temp_config}" "${GIT_CONFIG}"; then
+    if mv -- "${temp_config}" "${GIT_CONFIG}"; then
         chmod 644 "${GIT_CONFIG}"
         print_success "Main Git config created: ${GIT_CONFIG}"
     else
@@ -960,28 +927,30 @@ EOF
     fi
 
     # Write per-directory gitconfigs with account-specific signing keys
-    local dir_config account_signing_key
+    local dir_config account_signing_key temp_dir_config
     for account in "${DIR_ACCOUNTS[@]}"; do
-        dir="${GIT_DIRS[${account}]}"
-        dir_config="${dir}/.gitconfig"
-        account_signing_key=""
-
-        if gpg_key_exists "${ACCOUNTS[${account}]}"; then
-            account_signing_key="$(gpg_account_fingerprint "${account}")"
+        real_dir="${real_dirs[${account}]}"
+        dir_config="${real_dir}/.gitconfig"
+        account_signing_key="$(gpg_account_fingerprint "${account}")"
+        if [[ -z "${account_signing_key}" ]]; then
+            print_error "No usable GPG signing key for ${account}"
+            return 1
         fi
 
-        mkdir -p "${dir}"
+        # Create the temp file next to its destination so the final mv is an
+        # atomic same-filesystem rename
+        temp_dir_config="$(mktemp "${real_dir}/.gitconfig.XXXXXX")"
+        TEMP_FILES+=("${temp_dir_config}")
 
-        cat >"${dir_config}" <<EOF
-# Git configuration for ${GIT_NAMES[${account}]} in ${dir}
+        # Inside this directory, plain GitHub SSH URLs must authenticate with
+        # this account's key; per-directory rewrites cannot be shadowed by a
+        # global rewrite, so no global insteadOf rule is written
+        cat >"${temp_dir_config}" <<EOF
+# Git configuration for ${GIT_NAMES[${account}]} in ${real_dir}
 # Generated by ${SCRIPT_NAME} v${SCRIPT_VERSION}
 [user]
     name = ${GIT_NAMES[${account}]}
     email = ${ACCOUNTS[${account}]}
-EOF
-
-        if [[ -n "${account_signing_key}" ]]; then
-            cat >>"${dir_config}" <<EOF
     signingkey = ${account_signing_key}
 
 [commit]
@@ -989,19 +958,14 @@ EOF
 
 [tag]
     gpgsign = true
-EOF
-        fi
-
-        # Inside this directory, plain GitHub SSH URLs must authenticate with
-        # this account's key; per-directory rewrites cannot be shadowed by a
-        # global rewrite, so no global insteadOf rule is written
-        cat >>"${dir_config}" <<EOF
 
 [url "git@${SSH_HOST_PREFIX}${account}:"]
     insteadOf = git@github.com:
+    insteadOf = ssh://git@github.com/
 EOF
 
-        chmod 644 "${dir_config}"
+        chmod 644 "${temp_dir_config}"
+        mv -- "${temp_dir_config}" "${dir_config}"
         print_success "Created ${account} Git config: ${dir_config}"
     done
 }
@@ -1039,7 +1003,9 @@ setup_ssh_agent() {
             continue
         fi
 
-        key_fp="$(ssh-keygen -lf "${pub_file}" 2>/dev/null | awk '{print $2}')"
+        # "|| true": a bad .pub file must reach the warning below, not abort
+        # the whole script via pipefail + errexit
+        key_fp="$(ssh-keygen -lf "${pub_file}" 2>/dev/null | awk '{print $2}' || true)"
         if [[ -z "${key_fp}" ]]; then
             print_warning "Could not get fingerprint for ${account} key"
             continue
@@ -1051,7 +1017,8 @@ setup_ssh_agent() {
             already=$((already + 1))
         else
             print_info "Adding key for ${account} to agent..."
-            if ssh-add "${key_file}" 2>/dev/null; then
+            # stderr stays visible so passphrase/agent errors are not hidden
+            if ssh-add "${key_file}"; then
                 print_success "Added key for ${account}"
                 added=$((added + 1))
             else
@@ -1109,42 +1076,30 @@ setup_gpg_agent() {
     fi
 
     local agent_conf="${GNUPG_DIR}/gpg-agent.conf"
-    local gpg_conf="${GNUPG_DIR}/gpg.conf"
-
-    # Never overwrite existing GPG config without a backup
-    backup_item "${agent_conf}" || true
+    local agent_temp
 
     # Determine the best available pinentry
     local pinentry_prog=""
     pinentry_prog="$(pinentry_program 2>/dev/null || true)"
 
-    cat >"${agent_conf}" <<EOF
+    agent_temp="$(mktemp "${GNUPG_DIR}/gpg-agent.XXXXXX")"
+    TEMP_FILES+=("${agent_temp}")
+    cat >"${agent_temp}" <<EOF
 # gpg-agent.conf - Generated by ${SCRIPT_NAME} v${SCRIPT_VERSION}
 default-cache-ttl 28800
 max-cache-ttl 86400
 EOF
 
     if [[ -n "${pinentry_prog}" ]]; then
-        echo "pinentry-program ${pinentry_prog}" >>"${agent_conf}"
+        echo "pinentry-program ${pinentry_prog}" >>"${agent_temp}"
         print_success "GPG agent will use pinentry: ${pinentry_prog}"
     else
         print_warning "No pinentry program found. Passphrase prompts may fail."
         print_info "Install one (e.g. the 'pinentry' package) and re-run if key generation fails."
     fi
 
-    chmod 600 "${agent_conf}"
-
-    # gpg.conf (only created if absent, so user settings are never clobbered)
-    if [[ ! -f "${gpg_conf}" ]]; then
-        cat >"${gpg_conf}" <<EOF
-# gpg.conf - Generated by ${SCRIPT_NAME}
-keyid-format long
-with-fingerprint
-trust-model direct
-EOF
-        chmod 600 "${gpg_conf}"
-        print_success "GPG config written: ${gpg_conf}"
-    fi
+    chmod 600 "${agent_temp}"
+    mv -- "${agent_temp}" "${agent_conf}"
 
     # Restart the agent safely via gpgconf so the new config is picked up
     gpgconf --kill gpg-agent 2>/dev/null || true
@@ -1170,24 +1125,28 @@ generate_gpg_keys() {
     echo ""
 
     local generated=0
-    local account email name fp fingerprint batch_input gen_log
+    local account email name fingerprint batch_input gen_log
 
     for account in "${ACCOUNT_ORDER[@]}"; do
         email="${ACCOUNTS[${account}]}"
         name="${GIT_NAMES[${account}]}"
 
         if gpg_key_exists "${email}"; then
-            fp="$(gpg_account_fingerprint "${account}")"
+            fingerprint="$(gpg_account_fingerprint "${account}")"
+            if [[ -z "${fingerprint}" ]]; then
+                print_error "Existing GPG key for ${account} does not match its configured identity"
+                return 1
+            fi
             print_info "GPG key already exists for ${account} (${email})"
-            print_info "  Fingerprint: ${fp}"
+            print_info "  Fingerprint: ${fingerprint}"
             continue
         fi
 
         print_info "Generating GPG key for ${account} (${name} <${email}>)..."
         print_info "Pinentry will prompt for a passphrase. If none appears, use Ctrl+C to abort."
 
-        batch_input="$(mktemp)"
-        gen_log="$(mktemp)"
+        batch_input="$(mktemp "${TMPDIR:-/tmp}/git-setup-gpg.XXXXXX")"
+        gen_log="$(mktemp "${TMPDIR:-/tmp}/git-setup-gpg-log.XXXXXX")"
         TEMP_FILES+=("${batch_input}" "${gen_log}")
 
         cat >"${batch_input}" <<EOF
@@ -1207,15 +1166,20 @@ EOF
             fingerprint="$(gpg_account_fingerprint "${account}")"
             if [[ -n "${fingerprint}" ]]; then
                 # Mark our own key as ultimately trusted
-                echo "${fingerprint}:6:" | gpg --import-ownertrust 2>/dev/null || true
+                if ! echo "${fingerprint}:6:" | gpg --import-ownertrust 2>/dev/null; then
+                    print_error "Could not set ownertrust for ${account}"
+                    return 1
+                fi
                 print_success "Generated GPG key for ${account}: ${fingerprint}"
                 generated=$((generated + 1))
             else
-                print_warning "Generated key for ${account} but could not retrieve its fingerprint"
+                print_error "Generated key for ${account} but could not retrieve its fingerprint"
+                return 1
             fi
         else
             print_error "Failed to generate GPG key for ${account}"
             sed 's/^/    gpg: /' "${gen_log}" >&2 || true
+            return 1
         fi
 
         rm -f "${batch_input}" "${gen_log}"
@@ -1236,6 +1200,7 @@ EOF
         print_error "GPG keys are still missing for: ${missing[*]}"
         print_info "Commits and tags for those accounts cannot be signed until this is fixed."
         print_info "Review the 'gpg:' output above; pinentry or passphrase problems are the usual cause."
+        return 1
     fi
 }
 
@@ -1246,16 +1211,11 @@ EOF
 backup_gpg_keys() {
     print_section "Backing Up GPG Keys"
 
-    mkdir -p "${GPG_BACKUP_DIR}"
-    chmod 700 "${GPG_BACKUP_DIR}"
-
-    local stamp
-    stamp="$(date +%Y%m%d)"
-    local backup_file="${GPG_BACKUP_DIR}/managed-secret-keys-${stamp}.asc"
-    local trust_file="${GPG_BACKUP_DIR}/ownertrust-${stamp}.txt"
+    mkdir -p -- "${GPG_BACKUP_DIR}"
+    chmod 700 -- "${GPG_BACKUP_DIR}"
 
     # Only export the keys this script manages
-    local account fp
+    local account fp backup_dir backup_file trust_file
     local -a fingerprints=()
     for account in "${ACCOUNT_ORDER[@]}"; do
         if gpg_key_exists "${ACCOUNTS[${account}]}"; then
@@ -1267,31 +1227,30 @@ backup_gpg_keys() {
     done
 
     if [[ ${#fingerprints[@]} -eq 0 ]]; then
-        print_warning "No managed GPG secret keys found; nothing to back up"
-        return 0
+        print_error "No managed GPG secret keys found; cannot create the required backup"
+        return 1
     fi
 
     print_info "Exporting ${#fingerprints[@]} secret key(s); you may be asked for each key's passphrase."
+    backup_dir="$(mktemp -d "${GPG_BACKUP_DIR}/managed.XXXXXXXXXX")"
+    chmod 700 -- "${backup_dir}"
+    backup_file="${backup_dir}/managed-secret-keys.asc"
+    trust_file="${backup_dir}/ownertrust.txt"
 
-    # umask 077 so the secret-key file is never world-readable, even briefly
-    if (
-        umask 077
-        gpg --yes --export-secret-keys --armor --output "${backup_file}" "${fingerprints[@]}"
-    ); then
-        chmod 600 "${backup_file}"
-        print_success "Secret keys backed up: ${backup_file}"
-    else
-        print_warning "Could not export secret keys"
+    if ! gpg --yes --export-secret-keys --armor --output "${backup_file}" "${fingerprints[@]}" || [[ ! -s "${backup_file}" ]]; then
+        print_error "Could not export the managed GPG secret keys"
+        return 1
     fi
+    chmod 600 -- "${backup_file}"
 
-    if (
-        umask 077
-        gpg --export-ownertrust >"${trust_file}"
-    ) 2>/dev/null; then
-        chmod 600 "${trust_file}"
-        print_success "Owner trust backed up: ${trust_file}"
+    if ! gpg --export-ownertrust >"${trust_file}"; then
+        print_error "Could not export GPG ownertrust"
+        return 1
     fi
+    chmod 600 -- "${trust_file}"
 
+    print_success "Secret keys backed up: ${backup_file}"
+    print_success "Owner trust backed up: ${trust_file}"
     print_warning "Store ${GPG_BACKUP_DIR} on encrypted offline storage (e.g., LUKS USB)!"
     print_info "Without these backups you cannot restore commit-signing capability on a new machine."
 }
@@ -1304,18 +1263,17 @@ verify_setup() {
     print_section "Verifying Setup"
 
     local all_good=true
-    local account email key_file pub_file fp alias_key alias_expected_key
+    local account email key_file fp alias_key alias_expected_key
 
     # Check SSH keys
     print_info "Checking SSH keys..."
     for account in "${ACCOUNT_ORDER[@]}"; do
         key_file="$(ssh_key_file "${account}")"
-        pub_file="${key_file}.pub"
 
-        if [[ -f "${key_file}" && -f "${pub_file}" ]]; then
-            echo -e "  ${GREEN}✓${NC} ${account}: SSH keys exist"
+        if validate_ssh_key_pair "${key_file}"; then
+            printf '%b\n' "  ${GREEN}✓${NC} ${account}: SSH keys exist"
         else
-            echo -e "  ${RED}✗${NC} ${account}: SSH keys missing"
+            printf '%b\n' "  ${RED}✗${NC} ${account}: SSH key pair is missing, invalid, or mismatched"
             all_good=false
         fi
     done
@@ -1326,9 +1284,14 @@ verify_setup() {
         email="${ACCOUNTS[${account}]}"
         if gpg_key_exists "${email}"; then
             fp="$(gpg_account_fingerprint "${account}")"
-            echo -e "  ${GREEN}✓${NC} ${account}: GPG key exists (${fp:0:16}...)"
+            if [[ -n "${fp}" ]]; then
+                printf '%b\n' "  ${GREEN}✓${NC} ${account}: GPG key exists (${fp:0:16}...)"
+            else
+                printf '%b\n' "  ${RED}✗${NC} ${account}: GPG key has no matching account fingerprint"
+                all_good=false
+            fi
         else
-            echo -e "  ${RED}✗${NC} ${account}: GPG key missing (commits will be unsigned)"
+            printf '%b\n' "  ${RED}✗${NC} ${account}: GPG key missing (commits will be unsigned)"
             all_good=false
         fi
     done
@@ -1351,11 +1314,11 @@ verify_setup() {
     for account in "${ACCOUNT_ORDER[@]}"; do
         alias_expected_key="$(ssh_key_file "${account}")"
         alias_key="$(ssh -F "${SSH_DIR}/config" -G "${SSH_HOST_PREFIX}${account}" 2>/dev/null |
-            awk 'tolower($1) == "identityfile" { print $2; exit }' || true)"
+            awk 'tolower($1) == "identityfile" { sub(/^[^[:space:]]+[[:space:]]+/, ""); print; exit }' || true)"
         if [[ "${alias_key}" == "${alias_expected_key}" ]]; then
-            echo -e "  ${GREEN}✓${NC} ${account}: SSH alias uses its own key"
+            printf '%b\n' "  ${GREEN}✓${NC} ${account}: SSH alias uses its own key"
         else
-            echo -e "  ${RED}✗${NC} ${account}: SSH alias uses ${alias_key:-<none>}"
+            printf '%b\n' "  ${RED}✗${NC} ${account}: SSH alias uses ${alias_key:-<none>}"
             all_good=false
         fi
     done
@@ -1363,7 +1326,7 @@ verify_setup() {
     # Check Git config
     print_info "Checking Git config..."
     if [[ -f "${GIT_CONFIG}" ]]; then
-        if git config --global --list &>/dev/null; then
+        if git config --file "${GIT_CONFIG}" --list &>/dev/null; then
             print_success "Main Git config exists and is valid"
         else
             print_error "Main Git config has syntax errors"
@@ -1374,62 +1337,45 @@ verify_setup() {
         all_good=false
     fi
 
-    # Check directory-specific configs
-    local dir dir_config
+    # Inspect generated files directly; do not create repositories or other
+    # temporary files inside the account directories.
+    print_info "Checking per-directory Git configs..."
+    local dir dir_config real_dir expected_key detected_name detected_email detected_key include_path
     for account in "${DIR_ACCOUNTS[@]}"; do
         dir="${GIT_DIRS[${account}]}"
         dir_config="${dir}/.gitconfig"
-        if [[ -f "${dir_config}" ]]; then
-            echo -e "  ${GREEN}✓${NC} ${GIT_NAMES[${account}]} Git config exists (${dir})"
+        if [[ ! -f "${dir_config}" ]]; then
+            printf '%b\n' "  ${RED}✗${NC} ${GIT_NAMES[${account}]} Git config missing (${dir})"
+            all_good=false
+            continue
+        fi
+        if ! git config --file "${dir_config}" --list &>/dev/null; then
+            print_error "${dir_config} has invalid Git config syntax"
+            all_good=false
+            continue
+        fi
+
+        detected_name="$(git config --file "${dir_config}" --get user.name 2>/dev/null || true)"
+        detected_email="$(git config --file "${dir_config}" --get user.email 2>/dev/null || true)"
+        detected_key="$(git config --file "${dir_config}" --get user.signingkey 2>/dev/null || true)"
+        expected_key="$(gpg_account_fingerprint "${account}")"
+        if [[ "${detected_name}" == "${GIT_NAMES[${account}]}" &&
+            "${detected_email}" == "${ACCOUNTS[${account}]}" &&
+            -n "${expected_key}" && "${detected_key}" == "${expected_key}" ]]; then
+            printf '%b\n' "  ${GREEN}✓${NC} ${dir_config} has the expected identity and signing key"
         else
-            echo -e "  ${RED}✗${NC} ${GIT_NAMES[${account}]} Git config missing (${dir})"
+            printf '%b\n' "  ${RED}✗${NC} ${dir_config} does not match ${account}"
             all_good=false
         fi
-    done
 
-    # Test Git conditional includes with a throw-away repo in each directory
-    print_info "Testing Git conditional includes..."
-    local test_dir detected_email detected_key expected_key
-    for account in "${DIR_ACCOUNTS[@]}"; do
-        dir="${GIT_DIRS[${account}]}"
-
-        if [[ ! -d "${dir}" ]]; then
-            print_warning "${dir} doesn't exist; skipping conditional include test"
-            continue
-        fi
-
-        test_dir="$(mktemp -d "${dir}/.git_test_XXXXXX" 2>/dev/null || true)"
-        if [[ -z "${test_dir}" ]]; then
-            print_warning "Could not create test directory in ${dir}"
-            continue
-        fi
-        TEMP_DIRS+=("${test_dir}")
-
-        if git -C "${test_dir}" init &>/dev/null; then
-            detected_email="$(git -C "${test_dir}" config user.email 2>/dev/null || true)"
-
-            if [[ "${detected_email}" == "${ACCOUNTS[${account}]}" ]]; then
-                echo -e "  ${GREEN}✓${NC} ${dir} correctly configured (${detected_email})"
-            else
-                echo -e "  ${RED}✗${NC} ${dir} not properly configured"
-                echo -e "     Expected: ${ACCOUNTS[${account}]}, Got: ${detected_email:-<empty>}"
-                all_good=false
-            fi
-
-            if gpg_key_exists "${ACCOUNTS[${account}]}"; then
-                expected_key="$(gpg_account_fingerprint "${account}")"
-                detected_key="$(git -C "${test_dir}" config user.signingkey 2>/dev/null || true)"
-                if [[ "${detected_key}" == "${expected_key}" ]]; then
-                    echo -e "  ${GREEN}✓${NC} ${dir} uses its own GPG signing key"
-                else
-                    echo -e "  ${RED}✗${NC} ${dir} has the wrong signing key"
-                    all_good=false
-                fi
-            fi
+        real_dir="$(cd -- "${dir}" && pwd -P)"
+        include_path="$(git config --file "${GIT_CONFIG}" --get "includeIf.gitdir:${real_dir}/.path" 2>/dev/null || true)"
+        if [[ "${include_path}" == "${real_dir}/.gitconfig" ]]; then
+            printf '%b\n' "  ${GREEN}✓${NC} ${GIT_CONFIG} includes ${dir_config}"
         else
-            print_warning "Could not init test repo in ${test_dir}"
+            printf '%b\n' "  ${RED}✗${NC} ${GIT_CONFIG} has no matching include for ${dir}"
+            all_good=false
         fi
-        rm -rf -- "${test_dir}"
     done
 
     echo ""
@@ -1465,7 +1411,7 @@ display_public_keys() {
             pubkey="$(cat "${pub_file}")"
             printf '%b %s\n' "${YELLOW}│${NC}" "${pubkey}"
 
-            fingerprint="$(ssh-keygen -lf "${pub_file}" 2>/dev/null | awk '{print $2}')"
+            fingerprint="$(ssh-keygen -lf "${pub_file}" 2>/dev/null | awk '{print $2}' || true)"
             printf '%b\n' "${YELLOW}│${NC}"
             printf '%b %s\n' "${YELLOW}│${NC}" "SSH Fingerprint: ${fingerprint}"
 
@@ -1485,9 +1431,13 @@ display_public_keys() {
     for account in "${ACCOUNT_ORDER[@]}"; do
         email="${ACCOUNTS[${account}]}"
         if gpg_key_exists "${email}"; then
-            printf '%b\n' "${BOLD}${CYAN}GPG public key for ${account} (${email}):${NC}"
-            gpg --armor --export "<${email}>" 2>/dev/null
-            echo ""
+            gpg_fp="$(gpg_account_fingerprint "${account}")"
+            if [[ -n "${gpg_fp}" ]]; then
+                printf '%b\n' "${BOLD}${CYAN}GPG public key for ${account} (${email}):${NC}"
+                # Export by fingerprint so only this account's key is printed
+                gpg --armor --export "${gpg_fp}" 2>/dev/null
+                echo ""
+            fi
         fi
     done
 }
@@ -1505,7 +1455,7 @@ display_instructions() {
     say "${BOLD}1. Add SSH Keys to GitHub${NC}\n\n"
     say "   For each account, go to: ${CYAN}https://github.com/settings/keys${NC}\n\n"
     say "   a) Click \"New SSH key\"\n"
-    say "   b) Give it a meaningful title (e.g., \"${DISTRO} - Ed25519 - ${year}\")\n"
+    say "   b) Give it a meaningful title (e.g., \"Linux - Ed25519 - ${year}\")\n"
     say "   c) Select \"Authentication Key\" as the key type\n"
     say "   d) Paste the public key shown above\n"
     say "   e) Click \"Add SSH key\"\n\n"
@@ -1525,25 +1475,20 @@ display_instructions() {
 
     say "${BOLD}4. Clone Repositories${NC}\n\n"
     say "   Use the SSH host alias matching the target account:\n\n"
-    say "   ${GREEN}configs${NC} (in ~/Git/ root-level):\n"
-    say "   ${CYAN}cd ~/Git && git clone git@${SSH_HOST_PREFIX}configs:aahsnr/repo.git${NC}\n\n"
-    say "   ${GREEN}personal${NC} (in ~/Git/personal/):\n"
-    say "   ${CYAN}cd ~/Git/personal && git clone git@${SSH_HOST_PREFIX}personal:aahsnr/repo.git${NC}\n\n"
-    say "   ${GREEN}work${NC} (in ~/Git/work/ - GitHub user ${GIT_NAMES[halcyon]}):\n"
-    say "   ${CYAN}cd ~/Git/work && git clone git@${SSH_HOST_PREFIX}halcyon:${GIT_NAMES[halcyon]}/repo.git${NC}\n\n"
-    say "   ${GREEN}common${NC} (in ~/Git/common/):\n"
-    say "   ${CYAN}cd ~/Git/common && git clone git@${SSH_HOST_PREFIX}common:aahsnr/repo.git${NC}\n\n"
-    say "   ${GREEN}halcyon${NC} (in ~/Git/halcyon/ - GitHub user ${GIT_NAMES[work]}):\n"
-    say "   ${CYAN}cd ~/Git/halcyon && git clone git@${SSH_HOST_PREFIX}work:${GIT_NAMES[work]}/repo.git${NC}\n\n"
+    for account in "${DIR_ACCOUNTS[@]}"; do
+        say "   ${GREEN}${account}${NC} (in ${GIT_DIRS[${account}]}/):\n"
+        say "   ${CYAN}cd ${GIT_DIRS[${account}]} && git clone git@${SSH_HOST_PREFIX}${account}:OWNER/REPO.git${NC}\n\n"
+    done
 
     say "${BOLD}5. Directory Structure and Auto-Switching${NC}\n\n"
-    say "   ${HOME}/Git/\n"
-    say "   ├── personal/  ${GREEN}→ personal account + GPG key (${ACCOUNTS[personal]})${NC}\n"
-    say "   ├── work/      ${GREEN}→ ${GIT_NAMES[halcyon]} account + GPG key (${ACCOUNTS[halcyon]})${NC}\n"
-    say "   ├── common/    ${GREEN}→ common account + GPG key (${ACCOUNTS[common]})${NC}\n"
-    say "   ├── halcyon/   ${GREEN}→ ${GIT_NAMES[work]} account + GPG key (${ACCOUNTS[work]})${NC}\n"
-    say "   └── other/     ${GREEN}→ configs account + GPG key (${ACCOUNTS[configs]})${NC}\n\n"
-    say "   Git automatically uses the correct identity and signing key based on\n"
+    say "   ${GIT_BASE_DIR}/\n"
+    local branch i=0
+    for account in "${DIR_ACCOUNTS[@]}"; do
+        i=$((i + 1))
+        if [[ ${i} -eq ${#DIR_ACCOUNTS[@]} ]]; then branch="└──"; else branch="├──"; fi
+        say "   ${branch} ${GIT_DIRS[${account}]#"${GIT_BASE_DIR}"/}  ${GREEN}→ ${GIT_NAMES[${account}]} (${ACCOUNTS[${account}]})${NC}\n"
+    done
+    say "\n   Git automatically uses the correct identity and signing key based on\n"
     say "   which directory your repository lives in - no manual switching needed.\n\n"
 
     say "${BOLD}6. Tell GPG About Your Terminal (needed for passphrase prompts)${NC}\n\n"
@@ -1559,12 +1504,11 @@ display_instructions() {
     say "   On GitHub, commits will show a green 'Verified' badge.\n\n"
 
     say "${BOLD}8. GPG Key Backups and Expiry${NC}\n\n"
-    say "   GPG secret key backup: ${CYAN}${GPG_BACKUP_DIR}/${NC}\n"
+    say "   GPG secret key backups: ${CYAN}${GPG_BACKUP_DIR}/managed.*/${NC}\n"
     say "   Store this directory on encrypted offline storage (USB/LUKS).\n"
     say "   Without it you cannot restore commit-signing on a new machine.\n\n"
     say "   To transfer to a new machine:\n"
-    say "   ${CYAN}gpg --import ${GPG_BACKUP_DIR}/managed-secret-keys-<date>.asc${NC}\n"
-    say "   ${CYAN}gpg --import-ownertrust ${GPG_BACKUP_DIR}/ownertrust-<date>.txt${NC}\n\n"
+    say "   Import managed-secret-keys.asc and ownertrust.txt from one matching managed.* directory.\n\n"
     say "   The generated GPG keys expire after 2 years. To extend one:\n"
     say "   ${CYAN}gpg --quick-set-expire <FINGERPRINT> 2y${NC}        # primary key\n"
     say "   ${CYAN}gpg --quick-set-expire <FINGERPRINT> 2y '*'${NC}    # all subkeys\n"
@@ -1582,7 +1526,7 @@ display_instructions() {
     say "   • If a repo is in the wrong directory, fix the remote URL:\n"
     say "     ${CYAN}git remote set-url origin git@${SSH_HOST_PREFIX}<account>:USER/REPO.git${NC}\n"
     say "   • Ed25519 GPG and SSH keys are more secure and faster than RSA\n"
-    say "   • See the companion git-crypt guide to add transparent file encryption\n\n"
+    say "\n"
 
     print_success "Setup complete! Happy coding! 🚀"
 }
@@ -1591,7 +1535,36 @@ display_instructions() {
 # MAIN FUNCTION
 # =============================================================================
 
+usage() {
+    cat <<EOF
+Usage: ${SCRIPT_NAME} [-h|--help] [-V|--version]
+
+Resets and rebuilds the multi-account GitHub SSH, GPG and Git configuration.
+Everything it removes is backed up first, and a confirmation is required
+before anything is deleted. Run it from an interactive terminal as a normal
+(non-root) user.
+EOF
+}
+
 main() {
+    if (($# > 0)); then
+        case "$1" in
+        -h | --help)
+            usage
+            return 0
+            ;;
+        -V | --version)
+            echo "${SCRIPT_NAME} ${SCRIPT_VERSION}"
+            return 0
+            ;;
+        *)
+            print_error "Unknown argument: $1"
+            usage >&2
+            return 2
+            ;;
+        esac
+    fi
+
     print_header
 
     validate_account_config
@@ -1603,8 +1576,6 @@ main() {
     print_info "logins, and GPG keys you own (all backed up first), then set up fresh"
     print_info "SSH keys, GPG keys (for commit signing), Git config, and GitHub CLI"
     print_info "for multiple GitHub accounts."
-    echo ""
-    print_info "Detected distribution: ${BOLD}${DISTRO}${NC}"
     echo ""
 
     # Cleanup (scoped, confirmed, backed up)

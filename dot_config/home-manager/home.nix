@@ -2,7 +2,7 @@
 {
   home = {
     username = "ahsan";
-    homeDirectory = "/home/" + config.home.username;
+    homeDirectory = "/home/ahsan";
     stateVersion = "26.11";
     extraOutputsToInstall = [
       "doc"
@@ -31,7 +31,7 @@
   };
 
   imports = [
-    ./direnv
+    #./direnv
     ./dev
     ./pkgs
     # ./vscodium
