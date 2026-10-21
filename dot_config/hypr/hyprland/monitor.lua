@@ -2,20 +2,20 @@
 
 hl.monitor({
 	output = "HDMI-A-5",
-	mode = "3840x2160@60",
+	mode = "2560x1440@60",
 	position = "0x0",
-	scale = 2.0,
+	scale = 1.0,
 	-- bitdepth = 8,
 	-- cm = "hdr",
-	sdrbrightness = 1.0,
-	sdrsaturation = 1.0,
-	supports_hdr = 1,
-	supports_wide_color = 1,
-	sdr_min_luminance = 0.005,
-	sdr_max_luminance = 250,
-	min_luminance = 0,
-	max_luminance = 1000,
-	max_avg_luminance = 500,
+	-- sdrbrightness = 1.0,
+	-- sdrsaturation = 1.0,
+	-- supports_hdr = 1,
+	-- supports_wide_color = 1,
+	-- sdr_min_luminance = 0.005,
+	-- sdr_max_luminance = 250,
+	-- min_luminance = 0,
+	-- max_luminance = 1000,
+	-- max_avg_luminance = 500,
 })
 
 -- Fallback rule for any unplugged monitor

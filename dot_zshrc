@@ -202,7 +202,7 @@ export XDG_STATE_HOME="${HOME}/.local/state"
 export BACKUP_DIR="${HOME}/backup"
 
 export TERMINAL="kitty"
-export BROWSER="brave"
+export BROWSER="brave-browser"
 export EDITOR="nvim"
 export VISUAL="nvim"
 export PAGER="less"
