@@ -4,7 +4,7 @@ hl.monitor({
 	output = "HDMI-A-5",
 	mode = "2560x1440@60",
 	position = "0x0",
-	scale = 1.00,
+	scale = 1.25,
 	-- bitdepth = 8,
 	-- cm = "hdr",
 	-- sdrbrightness = 1.0,
