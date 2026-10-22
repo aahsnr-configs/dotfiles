@@ -369,13 +369,6 @@ keybinding:
 # CUSTOM COMMANDS · Extend lazygit with your own git workflows
 # ==============================================================================
 customCommands:
-  - key: "c"
-    context: "files"
-    description: "AI commit via lazycommit (stage all + generate message)"
-    command: "lazycommit --all"
-    output: "terminal"
-    loadingText: "Generating commit message…"
-
   - key: "<ctrl+f>"
     context: "localBranches"
     command: 'git push --force-with-lease origin "{{.SelectedLocalBranch.Name}}"'
