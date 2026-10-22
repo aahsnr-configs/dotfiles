@@ -4,7 +4,7 @@ hl.monitor({
 	output = "HDMI-A-5",
 	mode = "2560x1440@60",
 	position = "0x0",
-	scale = 1.0,
+	scale = 1.00,
 	-- bitdepth = 8,
 	-- cm = "hdr",
 	-- sdrbrightness = 1.0,
@@ -19,13 +19,13 @@ hl.monitor({
 })
 
 -- Fallback rule for any unplugged monitor
-hl.monitor({
-	output = "",
-	mode = "preferred",
-	position = "auto",
-	scale = "auto",
-})
-
+-- hl.monitor({
+-- 	output = "",
+-- 	mode = "preferred",
+-- 	position = "auto",
+-- 	scale = "auto",
+-- })
+--
 -- hl.config({
 -- 	render = {
 -- 		cm_auto_hdr = 2,
