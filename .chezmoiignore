@@ -1,14 +1,17 @@
 # Repo documentation — not part of the target ($HOME) state
+# Patterns match target paths (.config/...), not source paths (dot_config/...)
 README.md
 cleanup-git.md
+TODO.md
 notes/**
+tmp.notes/**
 docs/superpowers/**
-dot_config/fish/
-dot_config/foot/
-dot_config/ghostty/
-dot_config/mango/
-dot_config/mise/
-dot_config/niri/
-dot_config/scroll/
-dot_config/uwsm/
-dot_config/topgrade.toml
+.config/fish/**
+.config/foot/**
+.config/ghostty/**
+.config/mango/**
+.config/mise/**
+.config/niri/**
+.config/scroll/**
+.config/uwsm/**
+.config/topgrade.toml
