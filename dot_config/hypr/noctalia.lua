@@ -18,7 +18,7 @@ local function apply_theme()
         },
         group = {
             col = {
-                border_active = secondary,
+                border_active = primary,
                 border_inactive = surface,
                 border_locked_active = error,
                 border_locked_inactive = surface,
@@ -26,12 +26,12 @@ local function apply_theme()
 
             groupbar = {
                 col = {
-                    active = secondary,
+                    active = primary,
                     inactive = surface,
                     locked_active = error,
                     locked_inactive = surface,
                 },
-                text_color = on_secondary,
+                text_color = on_surface,
                 text_color_inactive = on_surface,
                 text_color_locked_active = on_error,
                 text_color_locked_inactive = on_surface,

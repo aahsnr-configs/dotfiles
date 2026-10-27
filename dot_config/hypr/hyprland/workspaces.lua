@@ -12,7 +12,7 @@ hl.workspace_rule({ workspace = "2", layout = "lua:leftscroll" })
 hl.workspace_rule({ workspace = "3", layout = "lua:leftscroll" })
 -- hy3 (workspaces 4-6, name:dev): until hyprpm builds hy3 for this Hyprland
 -- version, these workspaces silently fall back to dwindle.
-hl.workspace_rule({ workspace = "4", layout = "hy3" })
+hl.workspace_rule({ workspace = "4", layout = "lua:leftscroll" })
 hl.workspace_rule({ workspace = "5", layout = "hy3" })
 hl.workspace_rule({ workspace = "6", layout = "hy3" })
 hl.workspace_rule({ workspace = "7", layout = "master" })
@@ -21,7 +21,7 @@ hl.workspace_rule({ workspace = "9", layout = "monocle" })
 
 -- Named workspaces
 hl.workspace_rule({ workspace = "name:research", layout = "lua:leftscroll" })
-hl.workspace_rule({ workspace = "name:dev", layout = "hy3" })
+hl.workspace_rule({ workspace = "name:dev", layout = "lua:leftscroll" })
 hl.workspace_rule({ workspace = "name:comm", layout = "master" })
 hl.workspace_rule({ workspace = "name:stage", layout = "lua:leftscroll" })
 
