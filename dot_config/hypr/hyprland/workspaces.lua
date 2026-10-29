@@ -7,23 +7,9 @@ local vars = require("hyprland/vars")
 -- WORKSPACE RULES (layout assignments)
 -- "lua:leftscroll" = custom niri-style scrolling layout from leftscroll.lua
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-hl.workspace_rule({ workspace = "1", layout = "lua:leftscroll" })
-hl.workspace_rule({ workspace = "2", layout = "lua:leftscroll" })
-hl.workspace_rule({ workspace = "3", layout = "lua:leftscroll" })
--- hy3 (workspaces 4-6, name:dev): until hyprpm builds hy3 for this Hyprland
--- version, these workspaces silently fall back to dwindle.
-hl.workspace_rule({ workspace = "4", layout = "lua:leftscroll" })
-hl.workspace_rule({ workspace = "5", layout = "hy3" })
-hl.workspace_rule({ workspace = "6", layout = "hy3" })
-hl.workspace_rule({ workspace = "7", layout = "master" })
-hl.workspace_rule({ workspace = "8", layout = "master" })
-hl.workspace_rule({ workspace = "9", layout = "monocle" })
-
--- Named workspaces
-hl.workspace_rule({ workspace = "name:research", layout = "lua:leftscroll" })
-hl.workspace_rule({ workspace = "name:dev", layout = "lua:leftscroll" })
-hl.workspace_rule({ workspace = "name:comm", layout = "master" })
-hl.workspace_rule({ workspace = "name:stage", layout = "lua:leftscroll" })
+-- Dynamic, GNOME-style workspaces: no per-workspace layout rules (every
+-- workspace uses the global layout) and nothing is persistent, so Hyprland
+-- removes a workspace as soon as it is empty and unfocused.
 
 -- Special workspace rule
 hl.workspace_rule({
@@ -49,12 +35,54 @@ for i = 1, 9 do
 	hl.bind(vars.mainMod .. " + SHIFT + " .. i, hl.dsp.window.move({ workspace = tostring(i) }))
 end
 
--- Relative switching
-hl.bind("CTRL + ALT + down", hl.dsp.focus({ workspace = "+1" }), { repeating = true })
-hl.bind("CTRL + ALT + up", hl.dsp.focus({ workspace = "-1" }), { repeating = true })
-hl.bind(vars.mainMod .. " + bracketleft", hl.dsp.focus({ workspace = "e-1" }))
-hl.bind(vars.mainMod .. " + bracketright", hl.dsp.focus({ workspace = "e+1" }))
+-- Relative switching (vertical, trailing empty workspace)
+-- Past the last workspace that has windows, go to a fresh empty one.
+local function target(dir)
+	if dir < 0 then
+		return "e-1"
+	end
+	local active = hl.get_active_workspace()
+	if not active then
+		return "e+1"
+	end
+	local last = active.id
+	if not last then
+		return "e+1"
+	end
+	for _, ws in ipairs(hl.get_workspaces()) do
+		-- id is nil for some workspaces; special ones are not in the sequence
+		if ws.id and not ws.special and ws.id > last then
+			last = ws.id
+		end
+	end
+	if last == active.id and active.windows > 0 then
+		return "empty"
+	end
+	return "e+1"
+end
+
+local function go(dir)
+	return function()
+		hl.dispatch(hl.dsp.focus({ workspace = target(dir) }))
+	end
+end
+
+local function send(dir)
+	return function()
+		hl.dispatch(hl.dsp.window.move({ workspace = target(dir) }))
+	end
+end
+
+local mainMod = vars.mainMod
+hl.bind("CTRL + ALT + up", go(-1))
+hl.bind("CTRL + ALT + down", go(1))
+hl.bind(mainMod .. " + Prior", go(-1))
+hl.bind(mainMod .. " + Next", go(1))
+hl.bind(mainMod .. " + bracketleft", go(-1))
+hl.bind(mainMod .. " + bracketright", go(1))
 
 -- Move window relative
-hl.bind("CTRL + SUPER + ALT + up", hl.dsp.window.move({ workspace = "-1" }))
-hl.bind("CTRL + SUPER + ALT + down", hl.dsp.window.move({ workspace = "+1" }))
+hl.bind("CTRL + ALT + SHIFT + up", send(-1))
+hl.bind("CTRL + ALT + SHIFT + down", send(1))
+hl.bind(mainMod .. " + SHIFT + Prior", send(-1))
+hl.bind(mainMod .. " + SHIFT + Next", send(1))

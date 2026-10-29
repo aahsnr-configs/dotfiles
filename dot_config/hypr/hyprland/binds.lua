@@ -195,8 +195,6 @@ end, { repeating = true })
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 -- MOUSE SCROLLING
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-hl.bind("CTRL + SUPER + mouse_down", hl.dsp.focus({ workspace = "+10" }))
-hl.bind("CTRL + SUPER + mouse_up", hl.dsp.focus({ workspace = "-10" }))
 hl.bind(mainMod .. " + mouse_down", hl.dsp.focus({ workspace = "e+1" }))
 hl.bind(mainMod .. " + mouse_up", hl.dsp.focus({ workspace = "e-1" }))
 
@@ -209,7 +207,6 @@ hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 hl.bind(mainMod .. " + minus", hl.dsp.window.move({ workspace = "special:minimized" }))
 hl.bind(mainMod .. " + equal", hl.dsp.workspace.toggle_special("minimized"))
--- CTRL+SUPER+ALT+up/down (move window to ws -1/+1) live in workspaces.lua
 hl.bind(mainMod .. " + ALT + S", hl.dsp.window.move({ workspace = "special:special" }))
 
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

@@ -97,6 +97,13 @@ hl.config({
 -- GESTURES
 -- Verified: hl.gesture() per wiki Variables page (gestures section)
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+hl.config({
+	gestures = {
+		workspace_swipe_create_new = true,
+		workspace_swipe_forever = false,
+	},
+})
+
 hl.gesture({
 	fingers = 3,
 	direction = "horizontal",

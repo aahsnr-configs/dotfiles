@@ -785,7 +785,6 @@ function yy() {
     [ "$cwd" != "$PWD" ] && [ -d "$cwd" ] && builtin cd -- "$cwd"
     rm -f -- "$tmp"
 }
-export GPG_TTY=$(tty)
 
 export npm_config_prefix="$HOME/.local"
 
@@ -827,3 +826,9 @@ export PATH="$HOME/.local/bin:$PATH"
 export PATH="$HOME/.bin:$PATH"
 
 alias hm-switch="home-manager switch"
+
+# gpg-agent
+export GPG_TTY=$(tty)
+export SSH_AUTH_SOCK="$(gpgconf --list-dirs agent-ssh-socket)"
+gpgconf --launch gpg-agent
+gpg-connect-agent updatestartuptty /bye >/dev/null

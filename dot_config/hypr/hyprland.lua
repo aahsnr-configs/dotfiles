@@ -18,4 +18,4 @@ require("hyprland/binds")
 require("hyprland/autostart")
 
 -- For Noctalia Color templates
-require("noctalia").apply_theme()
+-- require("noctalia").apply_theme()
