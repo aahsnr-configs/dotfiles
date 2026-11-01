@@ -826,6 +826,8 @@ export PATH="$HOME/.local/bin:$PATH"
 export PATH="$HOME/.bin:$PATH"
 
 alias hm-switch="home-manager switch"
+alias gearlever='flatpak run it.mijorus.gearlever'
+
 
 # gpg-agent
 export GPG_TTY=$(tty)
