@@ -1,1 +1,7 @@
 - [ ] Make kitty shell
+- [ ] tab in zsh inserts capital letters on tab when no capital letters exist
+- [ ] fix yazi issue where it opens a blank pdf file with zathura. zathura on its own opens the file normally
+- [ ] reduce the blur in zathura via zathura config or hyprland
+- [ ] add floating rules for popup windows from browsers
+- [ ] open bitwarden main app as floating app
+- [ ] make scratcpad out of opencode-cli. it has to cover 75 to 80 percent of the aspect ratio
