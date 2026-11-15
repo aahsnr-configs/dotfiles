@@ -1,0 +1,69 @@
+{
+  "mcpServers": {
+    "keenable": {
+      "url": "https://api.keenable.ai/mcp-public",
+      "enabled": true,
+      "exposure": "codemode",
+      "description": "Search and fetch current web sources. Prefer a few concise results and fetch only relevant pages.",
+      "toolExposure": {
+        "search_web_pages": "codemode",
+        "fetch_page_content": "codemode",
+        "*": "hidden"
+      }
+    },
+    "context7": {
+      "url": "https://mcp.context7.com/mcp/oauth",
+      "enabled": false,
+      "exposure": "codemode",
+      "description": "Fetch current library and framework documentation when needed."
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest"
+      ],
+      "enabled": false,
+      "exposure": "codemode",
+      "description": "Use browser automation for explicit web UI development and testing tasks."
+    },
+    "zotero": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "zotero-mcp-server",
+        "zotero-mcp"
+      ],
+      "env": {
+        "ZOTERO_LOCAL": "true",
+        "ZOTERO_MCP_TOOLSETS": "none"
+      },
+      "enabled": false,
+      "exposure": "hidden",
+      "toolExposure": {
+        "zotero_search_items": "codemode",
+        "zotero_advanced_search": "codemode",
+        "zotero_search_by_citation_key": "codemode",
+        "zotero_get_recent": "codemode",
+        "zotero_get_tags": "codemode",
+        "zotero_get_collections": "codemode",
+        "zotero_get_collection_items": "codemode",
+        "zotero_search_collections": "codemode",
+        "zotero_get_item_metadata": "codemode",
+        "zotero_get_item_fulltext": "codemode",
+        "zotero_get_item_children": "codemode",
+        "zotero_read_pdf_pages": "codemode",
+        "zotero_get_pdf_outline": "codemode",
+        "zotero_get_attachment_path": "codemode",
+        "zotero_export_bibliography": "codemode",
+        "zotero_get_annotations": "codemode",
+        "zotero_synthesize_annotations": "codemode",
+        "zotero_get_notes": "codemode",
+        "zotero_get_page_layout": "codemode",
+        "zotero_write_capabilities": "codemode",
+        "*": "hidden"
+      },
+      "description": "Read and search the local Zotero library; write and mutation tools are hidden."
+    }
+  }
+}

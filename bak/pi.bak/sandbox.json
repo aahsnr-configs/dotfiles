@@ -1,0 +1,41 @@
+{
+  "enabled": true,
+  "enableAccessRequestTool": false,
+  "sandboxUserShell": true,
+  "permissionPromptTimeoutSeconds": 600,
+  "allowBrowserProcess": false,
+  "allowProcessSignals": false,
+  "network": {
+    "disabled": false,
+    "allowedDomains": [],
+    "deniedDomains": [],
+    "allowLocalBinding": false,
+    "allowAllUnixSockets": false,
+    "allowSSHAgentSocket": false,
+    "allowUnauthenticatedSocksProxy": false,
+    "sshProxy": false
+  },
+  "filesystem": {
+    "allowRead": [
+      "."
+    ],
+    "allowWrite": [
+      "."
+    ],
+    "denyRead": [
+      "/var/home/ahsan/.ssh",
+      "/var/home/ahsan/.gnupg",
+      "/var/home/ahsan/.config/gh",
+      "/var/home/ahsan/.config/pi/auth.json"
+    ],
+    "denyWrite": [
+      ".git",
+      ".pi",
+      ".env",
+      "/var/home/ahsan/.config/pi",
+      "/var/home/ahsan/.ssh",
+      "/var/home/ahsan/.gnupg",
+      "/var/home/ahsan/.config/gh"
+    ]
+  }
+}

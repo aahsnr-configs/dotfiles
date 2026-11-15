@@ -1,0 +1,42 @@
+{
+  "lastChangelogVersion": "1.5.2",
+  "deviceId": "2c020dcb-4ce0-4162-b852-848c2e5dd211",
+  "defaultProvider": "openai",
+  "defaultModel": "gpt-6-luna",
+  "packages": [
+    "npm:pi-sandbox",
+    "npm:@narumitw/pi-cache-hit-monitor",
+    "npm:pi-openui",
+    "npm:pi-fast-tui",
+    "npm:@gotgenes/pi-permission-system",
+    "npm:pi-lens",
+    {
+      "source": "npm:pi-feature-dev",
+      "extensions": [],
+      "skills": [
+        "skills/feature-dev",
+        "skills/deslop",
+        "skills/final-check",
+        "-skills/backlog",
+        "-skills/deepen",
+        "-skills/elevate",
+        "-skills/grill",
+        "-skills/visual-recap"
+      ],
+      "prompts": [],
+      "themes": []
+    }
+  ],
+  "extensionChangelogVersions": {
+    "{\"source\":\"npm:pi-open-tui\",\"scope\":\"user\"}": "0.4.6",
+    "{\"source\":\"npm:@narumitw/pi-cache-hit-monitor\",\"scope\":\"user\"}": "0.1.4",
+    "{\"source\":\"npm:pi-openui\",\"scope\":\"user\"}": "0.3.1",
+    "{\"source\":\"npm:pi-beautiful-tui\",\"scope\":\"user\"}": "0.2.4",
+    "{\"source\":\"npm:pi-fast-tui\",\"scope\":\"user\"}": "0.9.0",
+    "{\"source\":\"npm:pi-permission-system\",\"scope\":\"user\"}": "0.8.0",
+    "{\"source\":\"npm:@gotgenes/pi-permission-system\",\"scope\":\"user\"}": "42.0.0",
+    "{\"source\":\"npm:pi-lens\",\"scope\":\"user\"}": "4.5.0"
+  },
+  "defaultProjectTrust": "ask",
+  "theme": "dark"
+}

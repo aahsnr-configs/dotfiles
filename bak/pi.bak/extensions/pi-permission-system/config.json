@@ -1,0 +1,32 @@
+{
+  "yoloMode": false,
+  "doublePressToConfirm": true,
+  "permissionReviewLog": false,
+  "permission": {
+    "*": "ask",
+    "read": "allow",
+    "write": "allow",
+    "edit": "allow",
+    "grep": "allow",
+    "find": "allow",
+    "ls": "allow",
+    "path": {
+      "*": "allow",
+      ".env": "deny",
+      "**/.env": "deny",
+      "*.env": "deny",
+      "*.env.*": "deny",
+      "**/.env.*": "deny",
+      "*.pem": "deny",
+      "*.key": "deny"
+    },
+    "bash": {
+      "*": "ask",
+      "git *": "deny",
+      "gh *": "deny",
+      "sudo *": "deny",
+      "rm -rf *": "deny"
+    },
+    "external_directory": "ask"
+  }
+}

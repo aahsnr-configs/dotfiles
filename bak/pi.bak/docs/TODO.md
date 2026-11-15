@@ -1,0 +1,34 @@
+- [ ] `Important:` When I open a project in pi using my nono, I want pi to open a prompt to trust or not trust the project. If the project is trusted then, subsequent launching of pi using nono should not ask again.
+- [ ] Use cohere where the task itself is not involved
+- [ ] Use cohere for git commit messages as well.
+- [ ] Always ask whether anything added to pi consume tokens
+- [ ] Add extension that allows for per agent permissions
+- [ ] Add orchestration for pi that is token efficient - usually a four-step one; determine if superpowers would overlap
+- [ ] Also determine if superpowers consumes tokens
+- [ ] Use the most token efficient mcp search
+- [ ] Does pi have an extension that allows code completions in editors?
+- [ ] Add pi integration for emacs and vscode
+- [ ] Add code compaction that compacts context on the fly.
+- [ ] Does compaction typically run when a context gets too big for the model or can it run in intervals to save context.
+- [ ] Is caveman strictly necessary for pi coding agent? If yes, add caveman but don't allow caveman-commit
+- [ ] Make sure context-caching is perfectly setup in pi
+- [ ] Need a todo list on the side that gets updated as task progresss
+- [ ] add context or instruction in the middle of task.
+- [ ] add mcp clients
+- [ ] Integrate pi into jupyterlab or google colab
+- [ ] What are the most popular extensions in pi.dev
+- [ ] Is billion-context extension worth it?
+- [ ] Add a notification system to pi-coding-agent
+- [ ] How do I safely use https://pi.dev/packages/auto-permission-system inside the sandbox
+- [ ] Add vim support to py
+- [ ] Add pymol skill to pi
+- [ ] Being able add artifacts
+- [ ] What is an acp adapter
+- [ ] Can lsp and formatter installed system-wide run inside the bwrap sandbox
+- [ ] Need to add pi-btw
+- [ ] Add pi --continue
+- [ ] Make pi automatically use gh for recommended tasks
+- [ ] `Important`: If left untouched is it possible for the thinking level to be automatically selected if possible?
+- [ ] `Important`: Skills should be in ~/.agents/skills
+- [ ] `Important`: Is instead web gui possible?
+- [ ] `Important`: Need to add global memory and project specific memory. Need to add a session manager.

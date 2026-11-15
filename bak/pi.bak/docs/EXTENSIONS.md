@@ -1,0 +1,10 @@
+- [ ] @juanbenjumea/pi-agy
+- [ ] npm:pi-btw
+- [ ] @agimon-ai/po-ui [Possibility]
+- [ ] pi-open-tui
+- [ ] @narumitw/pi-cache-hit-monitor
+- [ ] pi-openui
+- [ ] npm:pi-sandbox
+- [ ] npm:pi-vim-editor
+- [ ] npm:pi-ide-context
+- [ ] @d3ara1n/pi-command-palette

@@ -614,6 +614,9 @@ alias box-rm='distrobox-rm --all --force'
 alias zsh-update='zsh_plugins_update'
 alias zsh-plugins='zsh_plugins_list'
 alias clr='clear'
+alias hm-switch="home-manager switch"
+alias gearlever='flatpak run it.mijorus.gearlever'
+
 
 # ============================================================================
 # FZF CONFIGURATION
@@ -806,28 +809,14 @@ case ":$PATH:" in
 *":$PNPM_HOME/bin:"*) ;;
 *) export PATH="$PNPM_HOME/bin:$PATH" ;;
 esac
-# pnpm end
-#
-# export PATH="$HOME/miniconda3/condabin:$PATH"
-# source "$HOME/miniconda3/etc/profile.d/conda.sh"
-# conda config --set auto_activate_base false
 
 # bun completions
 [ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
 
 # opencode
 export PATH="$HOME/.opencode/bin:$PATH"
-
-
-# Added by Antigravity CLI installer
 export PATH="$HOME/.local/bin:$PATH"
-
-# halcyon user helpers (deployed from dot_bin)
 export PATH="$HOME/.bin:$PATH"
-
-alias hm-switch="home-manager switch"
-alias gearlever='flatpak run it.mijorus.gearlever'
-
 
 # gpg-agent
 export GPG_TTY=$(tty)

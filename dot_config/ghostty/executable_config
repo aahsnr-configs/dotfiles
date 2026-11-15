@@ -1,24 +1,86 @@
+# ============================================================================
+# Ghostty config — parity with Kitty (kitty.conf) + noctalia theme
+# ============================================================================
+
+# --- Performance & shell integration ---
+shell-integration = zsh
+
+# --- Fonts (matches Kitty: JetBrainsMono Nerd Font, ligatures disabled) ---
 font-family = "JetBrainsMono Nerd Font"
 font-size = 12
 
 font-feature = -calt
 font-feature = -liga
 font-feature = -dlig
+
 adjust-underline-position = 2
 adjust-cell-height = -1
 
-
+# --- Window layout & appearance (matches Kitty: no decorations, padding) ---
 background-opacity = 0.7
-clipboard-read = allow
-clipboard-write = allow
-clipboard-trim-trailing-spaces = true
-copy-on-select = true
-cursor-style = block
-cursor-style-blink = false
 window-decoration = none
 window-padding-x = 10
 window-padding-y = 10
-shell-integration = zsh
 
+# --- Clipboard ---
+clipboard-read = allow
+clipboard-write = allow
+clipboard-trim-trailing-spaces = true
 clipboard-paste-protection = false
+copy-on-select = true
+
+# --- Cursor (matches Kitty: block cursor, no blink) ---
+cursor-style = block
+cursor-style-blink = false
+
+# --- Scrollback (Kitty default is a large buffer) ---
+scrollback-lines = 10000
+
+# --- Theme (noctalia, synced with Kitty themes/noctalia.conf) ---
 theme = noctalia
+
+# --- Keybindings (Kitty-style: Alt as the multiplexer modifier) ---
+# Format: keybind = <modifier>+<key>=<action>
+
+# Window / pane management
+keybind = alt+enter=new_window
+keybind = alt+w=close_window
+keybind = alt+v=new_split:right
+keybind = alt+s=new_split:down
+
+# Navigation (arrow keys)
+keybind = alt+left=focus_previous_pane
+keybind = alt+right=focus_next_pane
+keybind = alt+up=focus_previous_pane
+keybind = alt+down=focus_next_pane
+
+# Moving windows
+keybind = ctrl+shift+alt+left=move_pane_left
+keybind = ctrl+shift+alt+right=move_pane_right
+keybind = ctrl+shift+alt+up=move_pane_up
+keybind = ctrl+shift+alt+down=move_pane_down
+
+# Resizing (Alt + Shift + arrows)
+keybind = alt+shift+left=resize_pane_left
+keybind = alt+shift+right=resize_pane_right
+keybind = alt+shift+up=resize_pane_up
+keybind = alt+shift+down=resize_pane_down
+
+# Tab management
+keybind = alt+t=new_tab
+keybind = alt+q=close_tab
+keybind = alt+.=next_tab
+keybind = alt+,=previous_tab
+
+# Reload config (Kitty: ctrl+alt+r)
+keybind = ctrl+alt+r=reload_config
+
+# Font size zoom (Kitty: ctrl+shift+plus/minus)
+keybind = ctrl+shift+plus=increase_font_size
+keybind = ctrl+shift+minus=decrease_font_size
+keybind = ctrl+shift+0=reset_font_size
+
+# URL hints (Kitty: url_color #7aa2f7)
+keybind = alt+u=hint
+hint-font = "JetBrainsMono Nerd Font"
+hint-mode = word

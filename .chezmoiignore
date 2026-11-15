@@ -4,7 +4,6 @@ README.md
 cleanup-git.md
 TODO.md
 notes/**
-tmp.notes/**
 docs/superpowers/**
 .config/fish/**
 .config/foot/**
@@ -15,3 +14,4 @@ docs/superpowers/**
 .config/scroll/**
 .config/uwsm/**
 .config/topgrade.toml
+bak/**
