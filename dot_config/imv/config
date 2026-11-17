@@ -1,4 +1,9 @@
 # ======================
+# imv's defaults overlap with several custom bindings below.
+[options]
+suppress_default_binds = true
+
+# ======================
 # Aliases Section
 # ======================
 [aliases]
@@ -22,29 +27,29 @@ h = prev
 l = next
 j = pan 0 50
 k = pan 0 -50
-<Shift+h> = pan -50 0
-<Shift+l> = pan 50 0  
-<Shift+j> = pan 0 50
-<Shift+k> = pan 0 -50
+H = pan -50 0
+L = pan 50 0
+J = pan 0 50
+K = pan 0 -50
 
 # Go to first/last image
 g = goto 1
-<Shift+g> = goto -1
+G = goto -1
 
 # Zooming
 plus = zoom 1
 minus = zoom -1
 equal = reset
-<Shift+w> = scaling full
-<Shift+e> = scaling full
+W = scaling full
+E = scaling full
 i = zoom 1
 o = zoom -1
 
 # Image manipulation  
 r = rotate by 90
-<Shift+r> = rotate by -90
+R = rotate by -90
 f = flip horizontal
-<Shift+f> = flip vertical
+F = flip vertical
 
 # View modes
 <Ctrl+f> = fullscreen
@@ -54,7 +59,6 @@ space = overlay
 
 # File operations - using aliases
 colon = command
-<Shift+semicolon> = command
 
 # Slideshow controls
 s = slideshow +1
@@ -62,13 +66,12 @@ s = slideshow +1
 
 # Window management
 <Ctrl+w> = close
-<Ctrl+n> = exec imv &
 q = quit
-<Shift+z><Shift+z> = quit
+ZZ = quit
 
 # Additional vim-like bindings
 n = next
-<Shift+n> = prev
+N = prev
 p = prev
 
 # Advanced navigation
