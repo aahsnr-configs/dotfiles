@@ -27,51 +27,51 @@ h = prev
 l = next
 j = pan 0 50
 k = pan 0 -50
-H = pan -50 0
-L = pan 50 0
-J = pan 0 50
-K = pan 0 -50
+<Shift+H> = pan -50 0
+<Shift+L> = pan 50 0
+<Shift+J> = pan 0 50
+<Shift+K> = pan 0 -50
 
 # Go to first/last image
 g = goto 1
-G = goto -1
+<Shift+G> = goto -1
 
 # Zooming
-plus = zoom 1
-minus = zoom -1
-equal = reset
-W = scaling full
-E = scaling full
+<plus> = zoom 1
+<minus> = zoom -1
+<Equals> = reset
+<Shift+W> = scaling full
+<Shift+E> = scaling full
 i = zoom 1
 o = zoom -1
 
 # Image manipulation  
 r = rotate by 90
-R = rotate by -90
+<Shift+R> = rotate by -90
 f = flip horizontal
-F = flip vertical
+<Shift+F> = flip vertical
 
 # View modes
 <Ctrl+f> = fullscreen
 <Ctrl+v> = overlay
 v = overlay
-space = overlay
+<Space> = overlay
 
 # File operations - using aliases
-colon = command
+<colon> = command
 
 # Slideshow controls
-s = slideshow +1
-<Ctrl+s> = slideshow 0
+t = slideshow +1
+<Shift+T> = slideshow -1
 
 # Window management
 <Ctrl+w> = close
 q = quit
-ZZ = quit
+<Shift+Z><Shift+Z> = quit
 
 # Additional vim-like bindings
 n = next
-N = prev
+<Shift+N> = prev
 p = prev
 
 # Advanced navigation
@@ -79,12 +79,8 @@ p = prev
 <Ctrl+u> = pan 0 -200
 <Home> = center
 <End> = center
-<Page_Up> = prev
-<Page_Down> = next
-
-# Mouse bindings
-<ScrollUp> = zoom 1
-<ScrollDown> = zoom -1
+<PageUp> = prev
+<PageDown> = next
 
 # Function keys
 <F11> = fullscreen
